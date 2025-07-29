@@ -6,8 +6,16 @@ import { useToast } from './use-toast';
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+// --- SIMULATION TOGGLE ---
+// Set to true to use simulated data for testing without a physical indicator.
+// Set to false for real-world use with the Web Serial API.
+const IS_SIMULATION_ENABLED = true;
+// -------------------------
+
+
 /**
  * A hook to manage connection to a serial port for reading indicator data.
+ * Can operate in real mode (Web Serial API) or simulation mode.
  */
 export function useIndicator() {
   const { toast } = useToast();
@@ -17,8 +25,25 @@ export function useIndicator() {
   const portRef = useRef<SerialPort | null>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const keepReadingRef = useRef(false);
+  const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const disconnect = useCallback(async () => {
+    // --- Simulation Disconnect ---
+    if (IS_SIMULATION_ENABLED) {
+        if (simulationIntervalRef.current) {
+            clearInterval(simulationIntervalRef.current);
+            simulationIntervalRef.current = null;
+        }
+        setConnectionStatus('disconnected');
+        setReading(0);
+        toast({
+            title: "Simulator Disconnected",
+            description: "The connection to the indicator simulator has been closed.",
+        });
+        return;
+    }
+    
+    // --- Real Disconnect ---
     keepReadingRef.current = false;
 
     if (readerRef.current) {
@@ -106,6 +131,27 @@ export function useIndicator() {
 
 
   const connect = useCallback(async () => {
+    // --- Simulation Connect ---
+    if (IS_SIMULATION_ENABLED) {
+        setConnectionStatus('connecting');
+        setTimeout(() => {
+            setConnectionStatus('connected');
+            toast({
+                title: "Simulator Connected",
+                description: "Successfully connected to the measurement simulator.",
+            });
+            let baseReading = Math.random() * 10;
+            simulationIntervalRef.current = setInterval(() => {
+                // Simulate small fluctuations
+                const fluctuation = (Math.random() - 0.5) * 0.1;
+                baseReading += fluctuation;
+                setReading(baseReading);
+            }, 100); // Update every 100ms
+        }, 1000); // Simulate connection delay
+        return;
+    }
+
+    // --- Real Connect ---
     if (!('serial' in navigator)) {
       toast({
         title: "Web Serial API not supported",
