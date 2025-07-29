@@ -194,8 +194,8 @@ export function OrthoDashboard() {
   const handlePrint = () => window.print();
   
   const squaringLiveReading = squaringZero !== null ? currentReading - squaringZero : currentReading;
-  const adjustmentLiveReading = adjustmentZero !== null ? currentReading - adjustmentZero : currentReading;
-
+  const adjustmentLiveReading = adjustmentZero !== null ? currentReading - adjustmentZero : 0;
+  
   const renderStepContent = () => {
     const distance = parseFloat(travelDistance) || 0;
     const numMeasurements = distance > 200 ? Math.floor(distance / 100) + 1 : 2;
@@ -391,7 +391,7 @@ export function OrthoDashboard() {
         );
       }
       case "adjustment": {
-        const liveOrthogonality = adjustmentZero !== null ? calculateOrthogonality(0, adjustmentLiveReading, distance) : null;
+        const liveOrthogonality = calculateOrthogonality(0, adjustmentLiveReading, distance);
         const inSpec = liveOrthogonality !== null && liveOrthogonality.unit === 'arcsec' && Math.abs(liveOrthogonality.value) <= SPEC_ARCSECONDS;
         
         return (
@@ -408,6 +408,7 @@ export function OrthoDashboard() {
                 orthogonality={adjustmentZero !== null ? liveOrthogonality : null}
                 isConnected={isConnected} 
                 onZero={() => setAdjustmentZero(currentReading)}
+                showMicrons={adjustmentZero === null}
               />
               {adjustmentZero !== null ? (
                 <AdjustmentBar reading={adjustmentLiveReading} travelDistance={distance} spec={SPEC_ARCSECONDS} />
@@ -437,7 +438,7 @@ export function OrthoDashboard() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <LiveReadingCard reading={currentReading} isConnected={isConnected} />
+                    <LiveReadingCard reading={currentReading} isConnected={isConnected} showMicrons={true} />
                      <div className="space-y-2">
                         <Label>Measurement Progress</Label>
                         <Progress value={progress} />
@@ -611,7 +612,22 @@ export function OrthoDashboard() {
   );
 }
 
-function LiveReadingCard({reading, isConnected, onZero, orthogonality}: {reading: number, isConnected: boolean, onZero?: () => void, orthogonality?: OrthogonalityResult | null}) {
+function LiveReadingCard({
+    reading, 
+    isConnected, 
+    onZero, 
+    orthogonality,
+    showMicrons = false
+}: {
+    reading: number, 
+    isConnected: boolean, 
+    onZero?: () => void, 
+    orthogonality?: OrthogonalityResult | null,
+    showMicrons?: boolean
+}) {
+    const displayValue = orthogonality?.value ?? reading;
+    const displayUnit = orthogonality?.unit ?? "μm";
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -619,10 +635,10 @@ function LiveReadingCard({reading, isConnected, onZero, orthogonality}: {reading
                 <Zap className={cn("w-6 h-6 transition-colors", isConnected ? "text-accent" : "text-muted-foreground")} />
             </CardHeader>
             <CardContent className="flex items-center justify-center h-24 text-center">
-                {orthogonality ? (
+                {(orthogonality && !showMicrons) ? (
                      <p className="text-4xl font-semibold transition-colors duration-300 font-code">
-                        {orthogonality.value.toFixed(2)}{" "}
-                        <span className="text-xl text-muted-foreground">{orthogonality.unit}</span>
+                        {displayValue.toFixed(2)}{" "}
+                        <span className="text-xl text-muted-foreground">{displayUnit}</span>
                     </p>
                 ) : (
                      <p className="text-4xl font-semibold transition-colors duration-300 font-code">
@@ -692,3 +708,5 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
     </Card>
   )
 }
+
+    
