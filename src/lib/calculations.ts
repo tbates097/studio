@@ -1,3 +1,4 @@
+
 /**
  * Calculates the orthogonality based on two readings over a specified distance.
  *
@@ -19,8 +20,8 @@ export function calculateOrthogonality(
   // We divide by 1000 to convert microns to mm to match the distance unit.
   const deviation = (reading2 - reading1) / 1000;
 
-  if (distance > 100) {
-    // For distances > 100mm, calculate in arcseconds.
+  if (distance >= 150) {
+    // For distances >= 150mm, calculate in arcseconds.
     // tan(angle) = opposite / adjacent = deviation / distance
     const angleInRadians = Math.atan(deviation / distance);
     // Convert radians to arcseconds: (radians * 180 / PI) * 3600
@@ -30,7 +31,7 @@ export function calculateOrthogonality(
       unit: "arcsec",
     };
   } else {
-    // For distances <= 100mm, the result is the linear deviation in microns.
+    // For distances < 150mm, the result is the linear deviation in microns.
     const deviationInMicrons = reading2 - reading1;
     return {
       value: Math.abs(deviationInMicrons),
