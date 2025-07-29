@@ -1,3 +1,4 @@
+
 import { OrthoDashboard } from "@/components/ortho-dashboard";
 import { Logo } from "@/components/icons/logo";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ export default function Home() {
           </h1>
         </div>
       </header>
-      <main className="flex-1 p-4 md:p-8">
+      <main className="flex-1 w-full p-4 mx-auto md:p-8 max-w-7xl">
         <OrthoDashboard />
       </main>
       <footer className="px-8 py-4 text-sm text-center border-t text-muted-foreground">
@@ -23,3 +24,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
