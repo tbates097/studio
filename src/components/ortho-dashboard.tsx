@@ -837,24 +837,24 @@ function ResultChart({
     ];
 
     return (
-        <Card>
+        <Card className="print-shadow-none">
             <CardHeader>
-                <CardTitle as="h3" className="text-lg font-medium">Deviation Chart</CardTitle>
-                <CardDescription>Error is exaggerated for clarity.</CardDescription>
+                <CardTitle as="h3" className="text-base font-bold text-center">Axis Alignment</CardTitle>
+                 <CardDescription className="text-xs text-center">Error Exaggerated 1000X</CardDescription>
             </CardHeader>
-            <CardContent className="h-64">
+            <CardContent className="h-64 print-p-0">
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={plotData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis label={{ value: `Deviation (μm x${errorExaggeration})`, angle: -90, position: 'insideLeft' }} />
+                        <XAxis dataKey="name" label={{ value: 'Direction 1', position: 'insideBottom', offset: -5 }} />
+                        <YAxis label={{ value: `Direction 2`, angle: -90, position: 'insideLeft' }} />
                         <Tooltip 
                             formatter={(value: number, name) => [`${(value / errorExaggeration).toFixed(3)} μm`, name]}
                             labelFormatter={() => ''}
                         />
                         <Legend />
-                        <Line type="monotone" dataKey="reference" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Ideal Reference" />
-                        <Line type="monotone" dataKey="measurement" stroke="hsl(var(--accent))" strokeWidth={2} name="Measured Path" />
+                        <Line type="monotone" dataKey="reference" stroke="#ff0000" strokeWidth={2} dot={{r:4, fill: '#ff0000'}} activeDot={{r:6}} name="Ideal Reference" />
+                        <Line type="monotone" dataKey="measurement" stroke="#0000ff" strokeWidth={2} dot={{r:4, fill: '#0000ff'}} activeDot={{r:6}} name="Measured Path" />
                     </LineChart>
                 </ResponsiveContainer>
             </CardContent>
@@ -880,10 +880,9 @@ function PrintableReport({
     <div className="p-8 font-sans bg-white text-black printable-area">
       <header className="flex flex-col items-center mb-8 text-center">
         <Logo className="w-auto h-12 text-[#00ADEF] mb-4" />
-        <h2 className="text-2xl font-bold">Axis Alignment Report</h2>
       </header>
       
-      <section className="mb-8">
+      <section className="mb-4">
         <ResultChart
             travelDistance={parseFloat(travelDistance)}
             finalMeasurement={finalMeasurement}
@@ -893,34 +892,33 @@ function PrintableReport({
 
       <section className="grid grid-cols-3 gap-4 text-sm mb-8">
         <div className="p-2 border border-gray-400 rounded">
-          <h3 className="font-bold mb-2">Final Result</h3>
-          <p className="text-lg font-semibold">
+          <h3 className="font-bold mb-2 text-center">Results</h3>
+          <p className="text-sm">
             Orthogonality: {finalResult ? Math.abs(finalResult.value).toFixed(2) : "N/A"}{" "}
             {finalResult?.unit}
           </p>
         </div>
-        <div className="p-2 border border-gray-400 rounded col-span-2">
-          <h3 className="font-bold mb-2">Test Conditions & Equipment</h3>
-          <div className="grid grid-cols-2 gap-x-4">
+         <div className="p-2 border border-gray-400 rounded">
+          <h3 className="font-bold mb-2 text-center">Comments</h3>
+            <p><strong>Axis 1 S/N:</strong> {reportData.axis1Serial}</p>
+            <p><strong>Axis 2 S/N:</strong> {reportData.axis2Serial}</p>
+            <p><strong>Order #:</strong> {reportData.orderNumber}</p>
+            <p><strong>Customer:</strong> {reportData.customerName}</p>
+            <p><strong>Part Number:</strong> {reportData.alignmentPartNumber}</p>
+        </div>
+        <div className="p-2 border border-gray-400 rounded">
+          <h3 className="font-bold mb-2 text-center">Test Conditions</h3>
+          <div className="grid grid-cols-1">
               <p><strong>Technician:</strong> {reportData.technician}</p>
               <p><strong>Date:</strong> {new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-")}</p>
-              <p><strong>Customer:</strong> {reportData.customerName}</p>
-              <p><strong>Order #:</strong> {reportData.orderNumber}</p>
-              <p><strong>Axis 1 S/N:</strong> {reportData.axis1Serial}</p>
-              <p><strong>Axis 2 S/N:</strong> {reportData.axis2Serial}</p>
               <p><strong>Artifact Asset:</strong> {reportData.artifactAssetNumber}</p>
               <p><strong>Indicator Asset:</strong> {reportData.indicatorAssetNumber}</p>
-              <p><strong>Part Number:</strong> {reportData.alignmentPartNumber}</p>
               <p><strong>Travel:</strong> {travelDistance} mm</p>
+              <p className="mt-2">{reportData.alignmentPartNumber}: Orthogonality &lt;= {SPEC_ARCSECONDS} arcsec over measurement distance</p>
           </div>
         </div>
       </section>
       
-      <section className="p-2 border border-gray-400 rounded mb-8">
-          <h3 className="font-bold mb-2">Comments</h3>
-          <p>{reportData.alignmentPartNumber}: Orthogonality &lt;= {SPEC_ARCSECONDS} arcsec over measurement distance</p>
-      </section>
-
       <footer className="mt-8 text-center text-xs">
         <p className="font-bold text-red-600">Aerotech Inc.,</p>
         <p className="font-bold text-red-600">Proprietary and Confidential</p>
@@ -928,3 +926,5 @@ function PrintableReport({
     </div>
   );
 }
+
+    
