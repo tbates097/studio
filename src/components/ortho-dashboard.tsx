@@ -15,8 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Ruler,
-  Play,
-  Square,
+  Link,
+  Unlink,
   Calculator,
   FileText,
   Zap,
@@ -31,6 +31,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Logo } from "./icons/logo";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { useIndicator } from "@/hooks/use-indicator";
+
 
 type Step = "setup" | "squaring" | "adjustment" | "measurement" | "results";
 
@@ -49,30 +51,34 @@ const SPEC_ARCSECONDS = 5;
 export function OrthoDashboard() {
   const [step, setStep] = useState<Step>("setup");
   const [travelDistance, setTravelDistance] = useState("150");
-  const [currentReading, setCurrentReading] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
+  const { 
+    reading: currentReading, 
+    connect, 
+    disconnect, 
+    connectionStatus 
+  } = useIndicator();
   const [squaringMeasurements, setSquaringMeasurements] = useState<Measurement[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [finalResult, setFinalResult] = useState<OrthogonalityResult>(null);
+  const [adjustmentZero, setAdjustmentZero] = useState<number | null>(null);
 
   const { toast } = useToast();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const startSimulation = useCallback(() => setIsRunning(true), []);
-  const stopSimulation = useCallback(() => setIsRunning(false), []);
+  const isConnected = connectionStatus === 'connected';
 
   const resetProcess = () => {
     setStep("setup");
     setTravelDistance("150");
-    setCurrentReading(0);
-    setIsRunning(false);
     setSquaringMeasurements([]);
     setMeasurements([]);
     setFinalResult(null);
+    setAdjustmentZero(null);
+    if(isConnected) {
+      disconnect();
+    }
   };
 
   const handleNextStep = () => {
-    stopSimulation();
     if (step === "setup") {
         const distance = parseFloat(travelDistance);
         if (isNaN(distance) || distance <= 0) {
@@ -87,9 +93,12 @@ export function OrthoDashboard() {
     } else if (step === "squaring") {
         setStep("adjustment");
     } else if (step === "adjustment") {
+        setAdjustmentZero(null); // Reset zero for measurement step
         setStep("measurement");
     } else if (step === "measurement") {
         const distance = parseFloat(travelDistance);
+        // We now use the first squaring measurement as the initial reference (reading1)
+        // and the last measurement as the final reading (reading2)
         const reading1 = squaringMeasurements[0]?.reading ?? 0;
         const reading2 = measurements[measurements.length - 1]?.reading ?? 0;
         const result = calculateOrthogonality(reading1, reading2, distance);
@@ -99,7 +108,6 @@ export function OrthoDashboard() {
   };
   
   const handlePrevStep = () => {
-    stopSimulation();
     if (step === "squaring") {
       setSquaringMeasurements([]);
       setStep("setup");
@@ -109,6 +117,7 @@ export function OrthoDashboard() {
     }
     if (step === "measurement") {
         setMeasurements([]);
+        setAdjustmentZero(null);
         setStep("adjustment");
     }
     if (step === "results") setStep("measurement");
@@ -141,33 +150,20 @@ export function OrthoDashboard() {
   };
 
   useEffect(() => {
-    if (step === 'squaring' && squaringMeasurements.length === 0) {
+    if (step === 'squaring' && squaringMeasurements.length === 0 && isConnected) {
         // Auto-record first squaring measurement at 0mm
         setSquaringMeasurements([{ position: 0, reading: currentReading }]);
     }
-    if (step === 'measurement' && measurements.length === 0) {
+    if (step === 'measurement' && measurements.length === 0 && isConnected) {
         // Auto-record first measurement at 0mm
         setMeasurements([{ position: 0, reading: currentReading }]);
     }
-  }, [step, currentReading]);
+  }, [step, currentReading, isConnected]);
 
-
-  useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setCurrentReading(
-          (prev) => prev + (Math.random() - 0.5) * 0.1
-        );
-      }, 500);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isRunning]);
 
   const handlePrint = () => window.print();
+  
+  const liveReading = adjustmentZero !== null ? currentReading - adjustmentZero : currentReading;
 
   const renderStepContent = () => {
     const distance = parseFloat(travelDistance) || 0;
@@ -179,9 +175,12 @@ export function OrthoDashboard() {
             <Card>
                 <CardHeader>
                     <CardTitle>Step 1: Setup</CardTitle>
-                    <CardDescription>Enter the total travel distance for the measurement.</CardDescription>
+                    <CardDescription>Connect to your indicator and enter the total travel distance for the measurement.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
+                    <Button onClick={isConnected ? disconnect : connect} className="w-full">
+                        {connectionStatus === 'connecting' ? 'Connecting...' : (isConnected ? <><Unlink/>Disconnect Indicator</> : <><Link/>Connect to Indicator</>)}
+                    </Button>
                     <Label htmlFor="distance">Total Travel Distance (mm)</Label>
                     <Input
                         id="distance"
@@ -192,7 +191,7 @@ export function OrthoDashboard() {
                     />
                 </CardContent>
                 <CardFooter className="justify-end">
-                    <Button onClick={handleNextStep}>
+                    <Button onClick={handleNextStep} disabled={!isConnected}>
                         Next <ChevronRight />
                     </Button>
                 </CardFooter>
@@ -211,7 +210,7 @@ export function OrthoDashboard() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                     <LiveReadingCard reading={currentReading} isRunning={isRunning} onToggle={isRunning ? stopSimulation : startSimulation} />
+                     <LiveReadingCard reading={currentReading} isConnected={isConnected} />
                      <div className="space-y-2">
                         <Label>Reference Progress</Label>
                         <Progress value={squaringProgress} />
@@ -229,7 +228,7 @@ export function OrthoDashboard() {
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
                     {squaringMeasurements.length < numMeasurements ? (
-                        <Button onClick={recordSquaringMeasurement} disabled={!isRunning}>
+                        <Button onClick={recordSquaringMeasurement} disabled={!isConnected}>
                             Record Ref. Reading ({squaringMeasurements.length === 0 ? '0' : (distance > 200 ? squaringMeasurements.length * 100 : distance)}mm) <Check/>
                         </Button>
                     ) : (
@@ -242,7 +241,7 @@ export function OrthoDashboard() {
         );
 
       case "adjustment":
-        const orthogonality = calculateOrthogonality(0, currentReading, distance);
+        const orthogonality = calculateOrthogonality(0, liveReading, distance);
         const inSpec = orthogonality !== null && orthogonality.unit === 'arcsec' && Math.abs(orthogonality.value) <= SPEC_ARCSECONDS;
         return (
           <Card>
@@ -254,16 +253,15 @@ export function OrthoDashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               <LiveReadingCard 
-                reading={currentReading} 
-                isRunning={isRunning} 
-                onToggle={isRunning ? stopSimulation : startSimulation}
-                onZero={() => setCurrentReading(0)}
+                reading={liveReading} 
+                isConnected={isConnected} 
+                onZero={() => setAdjustmentZero(currentReading)}
               />
-              <AdjustmentBar reading={currentReading} travelDistance={distance} spec={SPEC_ARCSECONDS} />
+              <AdjustmentBar reading={liveReading} travelDistance={distance} spec={SPEC_ARCSECONDS} />
             </CardContent>
             <CardFooter className="justify-between">
               <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-              <Button onClick={handleNextStep} disabled={!inSpec && isRunning} className="bg-primary hover:bg-primary/90">
+              <Button onClick={handleNextStep} disabled={!inSpec} className="bg-primary hover:bg-primary/90">
                   {inSpec ? "Adjustment Complete" : "Within Spec to Proceed"} <ChevronRight />
               </Button>
             </CardFooter>
@@ -281,7 +279,7 @@ export function OrthoDashboard() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <LiveReadingCard reading={currentReading} isRunning={isRunning} onToggle={isRunning ? stopSimulation : startSimulation} />
+                    <LiveReadingCard reading={currentReading} isConnected={isConnected} />
                      <div className="space-y-2">
                         <Label>Measurement Progress</Label>
                         <Progress value={progress} />
@@ -299,7 +297,7 @@ export function OrthoDashboard() {
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
                     {measurements.length < numMeasurements ? (
-                        <Button onClick={recordMeasurement} disabled={!isRunning}>
+                        <Button onClick={recordMeasurement} disabled={!isConnected}>
                             Record Reading ({measurements.length === 0 ? '0' : (distance > 200 ? measurements.length * 100 : distance)}mm) <Check/>
                         </Button>
                     ) : (
@@ -411,12 +409,12 @@ export function OrthoDashboard() {
   );
 }
 
-function LiveReadingCard({reading, isRunning, onToggle, onZero}: {reading: number, isRunning: boolean, onToggle: () => void, onZero?: () => void}) {
+function LiveReadingCard({reading, isConnected, onZero}: {reading: number, isConnected: boolean, onZero?: () => void}) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg font-medium">Live Reading</CardTitle>
-                <Zap className={`w-6 h-6 transition-colors ${ isRunning ? "text-accent" : "text-muted-foreground"}`} />
+                <Zap className={cn("w-6 h-6 transition-colors", isConnected ? "text-accent" : "text-muted-foreground")} />
             </CardHeader>
             <CardContent className="flex items-center justify-center h-24 text-center">
                  <p className="text-4xl font-semibold transition-colors duration-300 font-code">
@@ -424,16 +422,13 @@ function LiveReadingCard({reading, isRunning, onToggle, onZero}: {reading: numbe
                   <span className="text-xl text-muted-foreground">μm</span>
                 </p>
             </CardContent>
-            <CardFooter className={cn("gap-2", onZero ? "grid-cols-2" : "grid-cols-1")}>
-                <Button onClick={onToggle} className="w-full" variant={isRunning ? "destructive" : "default"}>
-                    {isRunning ? <><Square className="mr-2" /> Stop</> : <><Play className="mr-2" /> Start</>}
-                </Button>
-                {onZero && (
-                  <Button onClick={onZero} className="w-full" variant="outline">
-                    Zero Indicator
-                  </Button>
-                )}
-            </CardFooter>
+             {onZero && (
+                <CardFooter>
+                    <Button onClick={onZero} className="w-full" variant="outline" disabled={!isConnected}>
+                        Zero Indicator
+                    </Button>
+                </CardFooter>
+            )}
         </Card>
     )
 }
@@ -447,8 +442,10 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
   // Calculate the raw deviation in microns that corresponds to the max display arcseconds
   const maxDeviationMicrons = travelDistance * Math.tan(maxDisplayArcsec / 3600 * Math.PI / 180) * 1000;
   
-  // Calculate the percentage based on the reading relative to the max deviation
-  const percentage = Math.max(-100, Math.min(100, (reading / maxDeviationMicrons) * 100));
+  // Avoid division by zero if maxDeviationMicrons is 0
+  const percentage = maxDeviationMicrons !== 0 
+    ? Math.max(-100, Math.min(100, (reading / maxDeviationMicrons) * 100))
+    : 0;
 
   const inSpec = arcsecValue <= spec;
 
@@ -492,3 +489,4 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
     </Card>
   )
 }
+
