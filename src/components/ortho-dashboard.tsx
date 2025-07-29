@@ -236,7 +236,7 @@ export function OrthoDashboard() {
                 )}
               </Button>
 
-              <Accordion type="multiple" defaultValue={["item-1", "item-2", "item-3"]} className="w-full">
+              <Accordion type="multiple" defaultValue={["item-1", "item-2", "item-3", "item-4"]} className="w-full">
                 <AccordionItem value="item-1">
                   <AccordionTrigger>Test Parameters</AccordionTrigger>
                   <AccordionContent>
@@ -280,8 +280,8 @@ export function OrthoDashboard() {
                     </div>
                   </AccordionContent>
                 </AccordionItem>
-                <AccordionItem value="item-3">
-                  <AccordionTrigger>Asset Information</AccordionTrigger>
+                 <AccordionItem value="item-3">
+                  <AccordionTrigger>Stage Information</AccordionTrigger>
                   <AccordionContent className="space-y-4">
                      <div className="space-y-2">
                       <Label htmlFor="axis1Serial">Axis 1 Serial Number</Label>
@@ -299,6 +299,11 @@ export function OrthoDashboard() {
                         onChange={handleReportDataChange}
                       />
                     </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-4">
+                  <AccordionTrigger>Asset Information</AccordionTrigger>
+                  <AccordionContent className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="alignmentPartNumber">
                         Alignment Part Number
