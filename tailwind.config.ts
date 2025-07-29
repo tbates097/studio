@@ -18,7 +18,7 @@ export default {
     extend: {
       fontFamily: {
         body: ['"Open Sans"', 'sans-serif'],
-        headline: ['"Roboto"', 'sans-serif'],
+        headline: ['"Barlow"', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
