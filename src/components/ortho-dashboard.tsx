@@ -516,7 +516,7 @@ export function OrthoDashboard() {
                         </CardHeader>
                         <CardContent className="flex flex-col items-center justify-center h-32">
                             <div className="text-6xl font-bold text-accent font-headline" aria-live="polite">
-                                {finalResult ? finalResult.value.toFixed(3) : "---"}
+                                {finalResult ? Math.abs(finalResult.value).toFixed(3) : "---"}
                             </div>
                             <p className="text-lg text-muted-foreground">
                                 {finalResult ? finalResult.unit : "N/A"}
@@ -596,7 +596,7 @@ export function OrthoDashboard() {
             <section className="grid grid-cols-3 gap-4 text-sm">
                 <div className="p-2 border border-gray-400">
                     <h3 className="font-bold mb-2">Results</h3>
-                    <p>Orthogonality = {finalResult?.value.toFixed(1)} {finalResult?.unit === "arcsec" ? "arcsec" : "µm"}</p>
+                    <p>Orthogonality = {finalResult ? Math.abs(finalResult.value).toFixed(1) : '0.0'} {finalResult?.unit === "arcsec" ? "arcsec" : "µm"}</p>
                 </div>
                 <div className="p-2 border border-gray-400">
                     <h3 className="font-bold mb-2">Comments</h3>
@@ -679,21 +679,23 @@ function LiveReadingCard({
 }
 
 function AdjustmentBar({ result, travelDistance, spec }: { result: OrthogonalityResult, travelDistance: number, spec: number }) {
-  const arcsecValue = result?.unit === 'arcsec' ? Math.abs(result.value) : 0;
+  if (!result) return null;
+
+  const { value, unit } = result;
   
-  // Convert the live reading (which could be in arcsec or microns) to a consistent micron deviation for the bar display
-  const readingInMicrons = result?.unit === 'arcsec' 
-    ? (travelDistance * Math.tan(result.value * (Math.PI / 180 / 3600))) * 1000
-    : result?.value ?? 0;
+  // Convert the live reading to a consistent value for the bar display.
+  // If it's arcseconds, use it directly. If it's microns, convert it to an equivalent arcsecond value for visual scaling.
+  const valueInArcsec = unit === 'arcsec' 
+    ? value
+    : (Math.atan((value / 1000) / travelDistance) * (180 / Math.PI) * 3600);
 
   const maxDisplayArcsec = spec * 3; 
-  const maxDeviationMicrons = travelDistance * Math.tan(maxDisplayArcsec * (Math.PI / 180 / 3600)) * 1000;
   
-  const percentage = maxDeviationMicrons !== 0 
-    ? Math.max(-100, Math.min(100, (readingInMicrons / maxDeviationMicrons) * 100))
+  const percentage = maxDisplayArcsec !== 0 
+    ? Math.max(-100, Math.min(100, (valueInArcsec / maxDisplayArcsec) * 100))
     : 0;
 
-  const inSpec = arcsecValue <= spec && result?.unit === 'arcsec';
+  const inSpec = unit === 'arcsec' && Math.abs(value) <= spec;
 
   const indicatorPosition = `calc(${50 + percentage / 2}%)`;
 
@@ -722,18 +724,12 @@ function AdjustmentBar({ result, travelDistance, spec }: { result: Orthogonality
           />
         </div>
         <div className="text-center">
-            <p className="font-bold text-lg">{result ? `${result.value.toFixed(2)} ${result.unit}` : 'Calculating...'}</p>
+            <p className="font-bold text-lg">{value.toFixed(2)} {unit}</p>
             <p className={cn("font-semibold", inSpec ? "text-green-500" : "text-red-500")}>
-                {inSpec ? "✔ In Spec" : (result?.unit === 'arcsec' ? "✖ Out of Spec" : "Adjust for Arcsecond Reading")}
+                {inSpec ? "✔ In Spec" : (unit === 'arcsec' ? "✖ Out of Spec" : "Adjust for Arcsecond Reading")}
             </p>
         </div>
       </CardContent>
     </Card>
   )
 }
-
-    
-
-    
-
-    

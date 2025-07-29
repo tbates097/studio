@@ -25,7 +25,7 @@ export function calculateOrthogonality(
     // tan(angle) = opposite / adjacent = deviation / distance
     const angleInRadians = Math.atan(deviation / distance);
     // Convert radians to arcseconds: (radians * 180 / PI) * 3600
-    const angleInArcseconds = Math.abs(angleInRadians * (180 / Math.PI) * 3600);
+    const angleInArcseconds = angleInRadians * (180 / Math.PI) * 3600;
     return {
       value: angleInArcseconds,
       unit: "arcsec",
@@ -34,7 +34,7 @@ export function calculateOrthogonality(
     // For distances < 150mm, the result is the linear deviation in microns.
     const deviationInMicrons = reading2 - reading1;
     return {
-      value: Math.abs(deviationInMicrons),
+      value: deviationInMicrons,
       unit: "μm",
     };
   }
