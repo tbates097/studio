@@ -24,11 +24,11 @@ export function useIndicator() {
 
   const portRef = useRef<SerialPort | null>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const writerRef = useRef<WritableStreamDefaultWriter | null>(null);
   const keepReadingRef = useRef(false);
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const simulationBaseReadingRef = useRef(0);
 
-  // Expose a function to manually set the simulation reading
   const setSimulationReading = useCallback((newReading: number) => {
     if (IS_SIMULATION_ENABLED) {
         simulationBaseReadingRef.current = newReading;
@@ -36,8 +36,38 @@ export function useIndicator() {
     }
   }, []);
 
+  const sendCommand = useCallback(async (command: string) => {
+    if (IS_SIMULATION_ENABLED) {
+      console.log(`Simulated command sent: ${command.trim()}`);
+      toast({
+        title: "Simulator Command",
+        description: `Command "${command.trim()}" sent to simulator.`,
+      });
+      return;
+    }
+
+    if (connectionStatus !== 'connected' || !writerRef.current) {
+      toast({
+        title: "Cannot Send Command",
+        description: "Indicator is not connected.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const textEncoder = new TextEncoder();
+      await writerRef.current.write(textEncoder.encode(command));
+    } catch (error) {
+      console.error("Error writing to port:", error);
+      toast({
+        title: "Command Failed",
+        description: "Failed to send command to the indicator.",
+        variant: "destructive",
+      });
+    }
+  }, [connectionStatus, toast]);
+
   const disconnect = useCallback(async () => {
-    // --- Simulation Disconnect ---
     if (IS_SIMULATION_ENABLED) {
         if (simulationIntervalRef.current) {
             clearInterval(simulationIntervalRef.current);
@@ -52,23 +82,20 @@ export function useIndicator() {
         return;
     }
     
-    // --- Real Disconnect ---
     keepReadingRef.current = false;
 
     if (readerRef.current) {
       try {
         await readerRef.current.cancel();
-      } catch (error) {
-        // Ignore cancel error
-      }
-    }
-
-    if (portRef.current?.writable) {
-        portRef.current.writable.getWriter().close();
+      } catch (error) { /* Ignore cancel error */ }
+      readerRef.current.releaseLock();
     }
     
-    if (portRef.current?.readable) {
-        portRef.current.readable.getReader().releaseLock();
+    if (writerRef.current) {
+        try {
+            await writerRef.current.close();
+        } catch(error) { /* Ignore close error */ }
+        writerRef.current.releaseLock();
     }
 
     if (portRef.current) {
@@ -81,8 +108,9 @@ export function useIndicator() {
 
     portRef.current = null;
     readerRef.current = null;
+    writerRef.current = null;
     setConnectionStatus('disconnected');
-    setReading(0); // Reset reading on disconnect
+    setReading(0);
      toast({
         title: "Indicator Disconnected",
         description: "The connection to the indicator has been closed.",
@@ -90,28 +118,21 @@ export function useIndicator() {
   }, [toast]);
 
   const readLoop = useCallback(async () => {
-    if (!portRef.current || !portRef.current.readable) {
-      return;
-    }
+    if (!portRef.current?.readable) return;
     
     keepReadingRef.current = true;
     const textDecoder = new TextDecoder();
     let buffer = '';
 
-    while (portRef.current && portRef.current.readable && keepReadingRef.current) {
+    while (portRef.current?.readable && keepReadingRef.current) {
+      readerRef.current = portRef.current.readable.getReader();
       try {
-        readerRef.current = portRef.current.readable.getReader();
         const { value, done } = await readerRef.current.read();
-
-        if (done) {
-          readerRef.current.releaseLock();
-          break;
-        }
+        if (done) break;
 
         buffer += textDecoder.decode(value, { stream: true });
-        
         const lines = buffer.split('\\r\\n');
-        buffer = lines.pop() || ''; // Keep the last partial line
+        buffer = lines.pop() || ''; 
 
         for (const line of lines) {
           const trimmedLine = line.trim();
@@ -122,25 +143,19 @@ export function useIndicator() {
             }
           }
         }
-
-        readerRef.current.releaseLock();
-        readerRef.current = null;
-
       } catch (error) {
         console.error("Read loop error:", error);
-        toast({
-            title: "Read Error",
-            description: "An error occurred while reading from the indicator.",
-            variant: "destructive"
-        })
-        break; // Exit loop on error
+        break; 
+      } finally {
+        if(readerRef.current) {
+            readerRef.current.releaseLock();
+        }
       }
     }
-  }, [toast]);
+  }, []);
 
 
   const connect = useCallback(async () => {
-    // --- Simulation Connect ---
     if (IS_SIMULATION_ENABLED) {
         setConnectionStatus('connecting');
         setTimeout(() => {
@@ -150,22 +165,20 @@ export function useIndicator() {
                 description: "Successfully connected to the measurement simulator.",
             });
             simulationBaseReadingRef.current = Math.random() * 10;
-            // Only run the interval if not being manually controlled
             if (!simulationIntervalRef.current) {
               simulationIntervalRef.current = setInterval(() => {
                   const fluctuation = (Math.random() - 0.5) * 0.01;
                   setReading(prev => prev + fluctuation);
               }, 150);
             }
-        }, 1000); // Simulate connection delay
+        }, 1000);
         return;
     }
 
-    // --- Real Connect ---
     if (!('serial' in navigator)) {
       toast({
         title: "Web Serial API not supported",
-        description: "Your browser does not support the Web Serial API. Please use a compatible browser like Chrome or Edge.",
+        description: "Please use a compatible browser like Chrome or Edge.",
         variant: "destructive",
       });
       return;
@@ -177,8 +190,10 @@ export function useIndicator() {
       const port = await navigator.serial.requestPort();
       portRef.current = port;
       
-      await port.open({ baudRate: 9600 }); // Common baud rate, adjust if needed
+      await port.open({ baudRate: 9600 });
       
+      writerRef.current = port.writable?.getWriter() ?? null;
+
       setConnectionStatus('connected');
       toast({
         title: "Indicator Connected",
@@ -199,14 +214,13 @@ export function useIndicator() {
       } else {
         toast({
           title: "Connection Failed",
-          description: "Could not connect to the serial port. Make sure it's not in use by another program.",
+          description: "Could not connect. Is it in use by another program?",
           variant: "destructive",
         });
       }
     }
   }, [toast, readLoop]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (connectionStatus === 'connected') {
@@ -215,7 +229,5 @@ export function useIndicator() {
     };
   }, [connectionStatus, disconnect]);
 
-  return { reading, connect, disconnect, connectionStatus, isSimulation: IS_SIMULATION_ENABLED, setSimulationReading };
+  return { reading, connect, disconnect, sendCommand, connectionStatus, isSimulation: IS_SIMULATION_ENABLED, setSimulationReading };
 }
-
-    

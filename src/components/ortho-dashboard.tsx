@@ -82,7 +82,8 @@ export function OrthoDashboard() {
   const { 
     reading: currentReading, 
     connect, 
-    disconnect, 
+    disconnect,
+    sendCommand,
     connectionStatus,
     isSimulation,
     setSimulationReading,
@@ -135,10 +136,12 @@ export function OrthoDashboard() {
             });
             return;
         }
+        sendCommand("FNC 6\r");
         setStep("squaring");
     } else if (step === "squaring") {
         setStep("adjustment");
     } else if (step === "adjustment") {
+        sendCommand("FNC 1\r");
         setAdjustmentZero(null); // Reset zero for measurement step
         setStep("measurement");
     } else if (step === "measurement") {
@@ -155,6 +158,7 @@ export function OrthoDashboard() {
     if (step === "squaring") {
       setSquaringMeasurements([]);
       setSquaringZero(null);
+      sendCommand("FNC 1\r");
       setStep("setup");
     }
     if (step === "adjustment") {
@@ -163,6 +167,7 @@ export function OrthoDashboard() {
     if (step === "measurement") {
         setMeasurements([]);
         setAdjustmentZero(null);
+        sendCommand("FNC 6\r");
         setStep("adjustment");
     }
     if (step === "results") setStep("measurement");
@@ -348,47 +353,68 @@ export function OrthoDashboard() {
         );
 
       case "squaring": {
-        const squaringProgress = (squaringMeasurements.length / numMeasurements) * 100;
+        const liveOrthogonality = squaringZero !== null 
+            ? calculateOrthogonality(squaringZero, currentReading, distance) 
+            : null;
+        const inSpec = liveOrthogonality !== null && liveOrthogonality.unit === 'arcsec' && Math.abs(liveOrthogonality.value) <= SPEC_ARCSECONDS;
+        
         return (
             <Card>
                 <CardHeader>
                     <CardTitle>Step 2: Squaring Artifact to Reference Axis</CardTitle>
                     <CardDescription>
                         Use the indicator feedback to square one side of your artifact to the axis of travel.
-                        Record reference readings at the specified intervals.
+                        Zero the indicator at one end, move to the other, and adjust until within spec before recording reference readings.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                      <LiveReadingCard 
                        reading={squaringLiveReading} 
                        isConnected={isConnected} 
-                       onZero={() => setSquaringZero(currentReading)}
+                       onZero={() => {
+                         setSquaringZero(currentReading);
+                         if (isSimulation && setSimulationReading) {
+                            setSimulationReading(currentReading);
+                         }
+                       }}
                      />
-                     <div className="space-y-2">
-                        <Label>Reference Progress</Label>
-                        <Progress value={squaringProgress} />
-                        <p className="text-sm text-center text-muted-foreground">{squaringMeasurements.length} of {numMeasurements} reference readings recorded.</p>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Recorded Reference Readings (μm)</Label>
-                        <div className="p-2 border rounded-md min-h-[50px] bg-muted/50">
-                            {squaringMeasurements.map((m, i) => (
-                                <p key={i}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
-                            ))}
-                        </div>
-                    </div>
+
+                     {isSimulation && squaringZero !== null && (
+                        <Card>
+                        <CardHeader>
+                            <CardTitle as="h3" className="text-base">Adjustment Simulator</CardTitle>
+                            <CardDescription className="text-xs">Use this slider to simulate turning the adjustment screw.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Slider
+                                value={[squaringLiveReading]}
+                                onValueChange={([val]) => setSimulationReading && setSimulationReading(val + squaringZero)}
+                                min={-300}
+                                max={300}
+                                step={1}
+                            />
+                        </CardContent>
+                        </Card>
+                    )}
+
+                    {squaringZero !== null ? (
+                        <AdjustmentBar 
+                            result={liveOrthogonality} 
+                            travelDistance={distance} 
+                            spec={SPEC_ARCSECONDS} 
+                        />
+                    ) : (
+                        <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
+                            <p className="text-muted-foreground">Please zero the indicator to begin live squaring adjustment.</p>
+                        </Card>
+                    )}
+
                 </CardContent>
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-                    {squaringMeasurements.length < numMeasurements ? (
-                        <Button onClick={recordSquaringMeasurement} disabled={!isConnected || squaringZero === null}>
-                            Record Ref. Reading ({squaringMeasurements.length === 0 ? '0' : (distance > 200 ? squaringMeasurements.length * 100 : distance)}mm) <Check/>
-                        </Button>
-                    ) : (
-                        <Button onClick={handleNextStep} className="bg-primary hover:bg-primary/90">
-                           Next <ChevronRight />
-                        </Button>
-                    )}
+                    <Button onClick={handleNextStep} disabled={!inSpec} className="bg-primary hover:bg-primary/90">
+                        {inSpec ? "Squaring Complete" : "Within Spec to Proceed"} <ChevronRight />
+                    </Button>
                 </CardFooter>
             </Card>
         );
@@ -467,11 +493,11 @@ export function OrthoDashboard() {
                 <CardHeader>
                     <CardTitle>Step 4: Orthogonality Measurement</CardTitle>
                     <CardDescription>
-                        Move to the perpendicular face. Record readings at the specified intervals.
+                        Move to the perpendicular face. Record readings at the specified intervals. The first reading is your new reference.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <LiveReadingCard reading={currentReading} isConnected={isConnected} />
+                    <LiveReadingCard reading={currentReading} isConnected={isConnected} onZero={() => setSquaringMeasurements([{ position: 0, reading: currentReading }])} />
                      <div className="space-y-2">
                         <Label>Measurement Progress</Label>
                         <Progress value={progress} />
@@ -480,8 +506,11 @@ export function OrthoDashboard() {
                     <div className="space-y-2">
                         <Label>Recorded Measurements (μm)</Label>
                         <div className="p-2 border rounded-md min-h-[50px] bg-muted/50">
+                            {squaringMeasurements.map((m, i) => (
+                                <p key={`sq-ref-${i}`}>Reference Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
+                            ))}
                             {measurements.map((m, i) => (
-                                <p key={i}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
+                                <p key={`meas-${i}`}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
                             ))}
                         </div>
                     </div>
@@ -489,8 +518,8 @@ export function OrthoDashboard() {
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
                     {measurements.length < numMeasurements ? (
-                        <Button onClick={recordMeasurement} disabled={!isConnected}>
-                            Record Reading ({measurements.length === 0 ? '0' : (distance > 200 ? measurements.length * 100 : distance)}mm) <Check/>
+                        <Button onClick={recordMeasurement} disabled={!isConnected || squaringMeasurements.length === 0}>
+                            Record Reading ({measurements.length === 0 ? '0' : (distance > 200 ? (measurements.length + 1) * 100 : distance)}mm) <Check/>
                         </Button>
                     ) : (
                         <Button onClick={handleNextStep} className="bg-accent hover:bg-accent/90">
