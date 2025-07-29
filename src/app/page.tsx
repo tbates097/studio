@@ -9,7 +9,7 @@ export default function Home() {
     <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-4 md:px-8 border-b bg-background/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <Logo className="w-8 h-8 text-primary" />
+          <Logo className="w-auto h-8 text-primary" />
           <h1 className="text-2xl font-bold font-headline text-primary">
             OrthoPrecision
           </h1>
@@ -24,5 +24,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
