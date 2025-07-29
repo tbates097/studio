@@ -565,42 +565,42 @@ export function OrthoDashboard() {
       case "finalMeasurement": {
         const progress = (measurements.length / numMeasurements) * 100;
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Step 5: Final Measurement</CardTitle>
-              <CardDescription>
-                Move to the perpendicular face. Record readings at the specified intervals. The first reading is your new reference.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <LiveReadingCard reading={currentReading} isConnected={isConnected} onZero={() => setMeasurements([{ position: 0, reading: currentReading }])} />
-                <div className="space-y-2">
-                  <Label>Measurement Progress</Label>
-                  <Progress value={progress} />
-                  <p className="text-sm text-center text-muted-foreground">{measurements.length} of {numMeasurements} measurements recorded.</p>
-              </div>
-              <div className="space-y-2">
-                  <Label>Recorded Measurements (μm)</Label>
-                  <div className="p-2 border rounded-md min-h-[50px] bg-muted/50">
-                      {measurements.map((m, i) => (
-                          <p key={`meas-${i}`}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
-                      ))}
-                  </div>
-              </div>
-            </CardContent>
-            <CardFooter className="justify-between">
-              <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-              {measurements.length < numMeasurements ? (
-                  <Button onClick={recordMeasurement} disabled={!isConnected}>
-                      Record Reading ({measurements.length === 0 ? '0' : (distance > 200 ? (measurements.length) * 100 : distance)}mm) <Check/>
-                  </Button>
-              ) : (
-                  <Button onClick={handleNextStep} className="bg-accent hover:bg-accent/90">
-                      Calculate Results <ChevronRight />
-                  </Button>
-              )}
-            </CardFooter>
-          </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Step 5: Final Measurement</CardTitle>
+                    <CardDescription>
+                        Move to the perpendicular face. Record readings at the specified intervals. The first reading is your new reference.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <LiveReadingCard reading={currentReading} isConnected={isConnected} onZero={() => setMeasurements([{ position: 0, reading: currentReading }])} />
+                    <div className="space-y-2">
+                        <Label>Measurement Progress</Label>
+                        <Progress value={progress} />
+                        <p className="text-sm text-center text-muted-foreground">{measurements.length} of {numMeasurements} measurements recorded.</p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Recorded Measurements (μm)</Label>
+                        <div className="p-2 border rounded-md min-h-[50px] bg-muted/50">
+                            {measurements.map((m, i) => (
+                                <p key={`meas-${i}`}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
+                            ))}
+                        </div>
+                    </div>
+                </CardContent>
+                <CardFooter className="justify-between">
+                    <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
+                    {measurements.length < numMeasurements ? (
+                        <Button onClick={recordMeasurement} disabled={!isConnected}>
+                            Record Reading ({measurements.length === 0 ? '0' : (distance > 200 ? (measurements.length) * 100 : distance)}mm) <Check/>
+                        </Button>
+                    ) : (
+                        <Button onClick={handleNextStep} className="bg-accent hover:bg-accent/90">
+                            Calculate Results <ChevronRight />
+                        </Button>
+                    )}
+                </CardFooter>
+            </Card>
         );
       }
       case "results":
@@ -625,7 +625,12 @@ export function OrthoDashboard() {
                             </p>
                         </CardContent>
                     </Card>
-                    <OrthogonalityVisualization result={finalResult} />
+                     <ResultChart
+                        isUITier
+                        travelDistance={parseFloat(travelDistance)}
+                        finalMeasurement={measurements[measurements.length - 1]}
+                        referenceMeasurement={measurements[0]}
+                    />
                 </CardContent>
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
@@ -771,84 +776,47 @@ function AdjustmentBar({
   )
 }
 
-function OrthogonalityVisualization({ result }: { result: OrthogonalityResult }) {
-    if (!result) return null;
-
-    let angleDegrees = 0;
-    if (result.unit === 'arcsec') {
-        angleDegrees = result.value / 3600;
-    } else {
-        return (
-             <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
-                <p className="text-muted-foreground">Angular visualization not applicable for μm result.</p>
-            </Card>
-        )
-    }
-
-    const exaggeration = 500;
-    const rotation = angleDegrees * exaggeration;
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle as="h3" className="text-lg font-medium">Result Visualization</CardTitle>
-                <CardDescription>Visual representation of the orthogonality error. Deviation is exaggerated for clarity.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex items-center justify-center h-48">
-                <div className="relative w-40 h-40">
-                    {/* Ideal (dashed) */}
-                    <div className="absolute w-full h-px -translate-y-1/2 bg-gray-500 top-1/2" style={{background: 'repeating-linear-gradient(90deg,hsl(var(--muted-foreground)),hsl(var(--muted-foreground)) 6px,transparent 6px,transparent 12px)'}} />
-                    <div className="absolute h-full w-px -translate-x-1/2 bg-gray-500 left-1/2" style={{background: 'repeating-linear-gradient(0deg,hsl(var(--muted-foreground)),hsl(var(--muted-foreground)) 6px,transparent 6px,transparent 12px)'}} />
-                    
-                    {/* Actual (solid) */}
-                    <div className="absolute w-full h-0.5 -translate-y-1/2 bg-primary top-1/2" />
-                    <div 
-                        className="absolute h-full w-0.5 -translate-x-1/2 bg-accent left-1/2 origin-center" 
-                        style={{transform: `rotate(${rotation}deg)`}}
-                    />
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-
 function ResultChart({
     travelDistance,
     referenceMeasurement,
     finalMeasurement,
+    isUITier = false,
 }: {
     travelDistance: number,
     referenceMeasurement?: Measurement,
     finalMeasurement?: Measurement,
+    isUITier?: boolean
 }) {
     if (!referenceMeasurement || !finalMeasurement) return null;
     
-    const errorExaggeration = 1000;
+    const errorExaggeration = isUITier ? 10000 : 1000;
 
     const plotData = [
         { name: 'Start', reference: 0, measurement: 0 },
         { name: `End (${travelDistance}mm)`, reference: 0, measurement: (finalMeasurement.reading - referenceMeasurement.reading) * errorExaggeration }
     ];
 
+    const cardTitle = isUITier ? "Result Visualization" : "Axis Alignment";
+    const cardDescription = isUITier ? "Visual representation of the orthogonality error." : "Error Exaggerated 1000X";
+
     return (
         <Card className="print-shadow-none">
             <CardHeader>
-                <CardTitle as="h3" className="text-base font-bold text-center">Axis Alignment</CardTitle>
-                 <CardDescription className="text-xs text-center">Error Exaggerated 1000X</CardDescription>
+                <CardTitle as="h3" className={isUITier ? "text-lg font-medium" : "text-base font-bold text-center"}>{cardTitle}</CardTitle>
+                <CardDescription className={isUITier ? "text-sm" : "text-xs text-center"}>{cardDescription}</CardDescription>
             </CardHeader>
             <CardContent className="h-64 print-p-0">
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={plotData} margin={{ top: 5, right: 30, left: 30, bottom: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" label={{ value: 'Direction 1', position: 'insideBottom', offset: -10 }} />
-                        <YAxis label={{ value: `Direction 2 (μm)`, angle: -90, position: 'insideLeft', offset: -20 }} />
+                        <XAxis dataKey="name" label={{ value: 'Reference Axis', position: 'insideBottom', offset: -10 }} />
+                        <YAxis label={{ value: `Measured Axis (μm)`, angle: -90, position: 'insideLeft', offset: -20 }} />
                         <Tooltip 
                             formatter={(value: number, name) => [`${(value / errorExaggeration).toFixed(3)} μm`, name]}
                             labelFormatter={() => ''}
                         />
                         <Legend verticalAlign="top" height={36}/>
-                        <Line type="monotone" dataKey="reference" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={{r:4, fill: 'hsl(var(--muted-foreground))'}} activeDot={{r:6}} name="Ideal Reference" />
+                        <Line type="monotone" dataKey="reference" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={{r:4, fill: 'hsl(var(--muted-foreground))'}} activeDot={{r:6}} name="Ideal Path" />
                         <Line type="monotone" dataKey="measurement" stroke="hsl(var(--primary))" strokeWidth={2} dot={{r:4, fill: 'hsl(var(--primary))'}} activeDot={{r:6}} name="Measured Path" />
                     </LineChart>
                 </ResponsiveContainer>
@@ -928,3 +896,5 @@ function PrintableReport({
     </div>
   );
 }
+
+    
