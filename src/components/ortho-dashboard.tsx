@@ -508,47 +508,47 @@ export function OrthoDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <LiveReadingCard 
-                reading={adjustmentLiveReading}
-                isConnected={isConnected} 
-                onZero={() => {
-                  setAdjustmentZero(currentReading)
-                  if (isSimulation && setSimulationReading) {
-                    setSimulationReading(currentReading);
-                  }
-                }}
-              />
-              
-              {isSimulation && adjustmentZero !== null && (
-                 <Card>
-                  <CardHeader>
-                    <CardTitle as="h3" className="text-base">Adjustment Simulator</CardTitle>
-                    <CardDescription className="text-xs">Use this slider to simulate turning the adjustment screw.</CardDescription>
-                  </CardHeader>
-                   <CardContent>
-                     <Slider
-                        value={[adjustmentLiveReading]}
-                        onValueChange={([val]) => setSimulationReading && setSimulationReading(val + adjustmentZero)}
-                        min={-300}
-                        max={300}
-                        step={1}
-                      />
-                   </CardContent>
-                 </Card>
-              )}
-
-
-              {adjustmentZero !== null ? (
-                <AdjustmentBar 
-                  result={liveOrthogonality} 
-                  travelDistance={distance} 
-                  spec={SPEC_ARCSECONDS} 
+                <LiveReadingCard 
+                    reading={adjustmentLiveReading}
+                    isConnected={isConnected} 
+                    onZero={() => {
+                        setAdjustmentZero(currentReading)
+                        if (isSimulation && setSimulationReading) {
+                        setSimulationReading(currentReading);
+                        }
+                    }}
                 />
-              ) : (
-                <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
-                    <p className="text-muted-foreground">Please zero the indicator to begin live adjustment.</p>
-                </Card>
-              )}
+                
+                {isSimulation && adjustmentZero !== null && (
+                    <Card>
+                    <CardHeader>
+                        <CardTitle as="h3" className="text-base">Adjustment Simulator</CardTitle>
+                        <CardDescription className="text-xs">Use this slider to simulate turning the adjustment screw.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Slider
+                            value={[adjustmentLiveReading]}
+                            onValueChange={([val]) => setSimulationReading && setSimulationReading(val + adjustmentZero)}
+                            min={-300}
+                            max={300}
+                            step={1}
+                        />
+                    </CardContent>
+                    </Card>
+                )}
+
+
+                {adjustmentZero !== null ? (
+                    <AdjustmentBar 
+                    result={liveOrthogonality} 
+                    travelDistance={distance} 
+                    spec={SPEC_ARCSECONDS} 
+                    />
+                ) : (
+                    <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
+                        <p className="text-muted-foreground">Please zero the indicator to begin live adjustment.</p>
+                    </Card>
+                )}
             </CardContent>
             <CardFooter className="justify-between">
               <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
@@ -562,42 +562,42 @@ export function OrthoDashboard() {
       case "finalMeasurement": {
         const progress = (measurements.length / numMeasurements) * 100;
         return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Step 5: Final Measurement</CardTitle>
-                    <CardDescription>
-                        Move to the perpendicular face. Record readings at the specified intervals. The first reading is your new reference.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <LiveReadingCard reading={currentReading} isConnected={isConnected} onZero={() => setMeasurements([{ position: 0, reading: currentReading }])} />
-                     <div className="space-y-2">
-                        <Label>Measurement Progress</Label>
-                        <Progress value={progress} />
-                        <p className="text-sm text-center text-muted-foreground">{measurements.length} of {numMeasurements} measurements recorded.</p>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Recorded Measurements (μm)</Label>
-                        <div className="p-2 border rounded-md min-h-[50px] bg-muted/50">
-                            {measurements.map((m, i) => (
-                                <p key={`meas-${i}`}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
-                            ))}
-                        </div>
-                    </div>
-                </CardContent>
-                <CardFooter className="justify-between">
-                    <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-                    {measurements.length < numMeasurements ? (
-                        <Button onClick={recordMeasurement} disabled={!isConnected}>
-                            Record Reading ({measurements.length === 0 ? '0' : (distance > 200 ? (measurements.length) * 100 : distance)}mm) <Check/>
-                        </Button>
-                    ) : (
-                        <Button onClick={handleNextStep} className="bg-accent hover:bg-accent/90">
-                            Calculate Results <ChevronRight />
-                        </Button>
-                    )}
-                </CardFooter>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 5: Final Measurement</CardTitle>
+              <CardDescription>
+                Move to the perpendicular face. Record readings at the specified intervals. The first reading is your new reference.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <LiveReadingCard reading={currentReading} isConnected={isConnected} onZero={() => setMeasurements([{ position: 0, reading: currentReading }])} />
+                <div className="space-y-2">
+                  <Label>Measurement Progress</Label>
+                  <Progress value={progress} />
+                  <p className="text-sm text-center text-muted-foreground">{measurements.length} of {numMeasurements} measurements recorded.</p>
+              </div>
+              <div className="space-y-2">
+                  <Label>Recorded Measurements (μm)</Label>
+                  <div className="p-2 border rounded-md min-h-[50px] bg-muted/50">
+                      {measurements.map((m, i) => (
+                          <p key={`meas-${i}`}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
+                      ))}
+                  </div>
+              </div>
+            </CardContent>
+            <CardFooter className="justify-between">
+              <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
+              {measurements.length < numMeasurements ? (
+                  <Button onClick={recordMeasurement} disabled={!isConnected}>
+                      Record Reading ({measurements.length === 0 ? '0' : (distance > 200 ? (measurements.length) * 100 : distance)}mm) <Check/>
+                  </Button>
+              ) : (
+                  <Button onClick={handleNextStep} className="bg-accent hover:bg-accent/90">
+                      Calculate Results <ChevronRight />
+                  </Button>
+              )}
+            </CardFooter>
+          </Card>
         );
       }
       case "results":
@@ -615,18 +615,14 @@ export function OrthoDashboard() {
                         </CardHeader>
                         <CardContent className="flex flex-col items-center justify-center h-32">
                             <div className="text-6xl font-bold text-accent font-headline" aria-live="polite">
-                                {finalResult ? finalResult.value.toFixed(3) : "---"}
+                                {finalResult ? Math.abs(finalResult.value).toFixed(3) : "---"}
                             </div>
                             <p className="text-lg text-muted-foreground">
                                 {finalResult ? finalResult.unit : "N/A"}
                             </p>
                         </CardContent>
                     </Card>
-                    <ResultChart 
-                        travelDistance={parseFloat(travelDistance)}
-                        finalMeasurement={measurements[measurements.length-1]}
-                        referenceMeasurement={measurements[0]}
-                    />
+                    <OrthogonalityVisualization result={finalResult} />
                 </CardContent>
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
@@ -773,6 +769,54 @@ function AdjustmentBar({
   )
 }
 
+function OrthogonalityVisualization({ result }: { result: OrthogonalityResult }) {
+    if (!result) return null;
+
+    let angleDegrees = 0;
+    if (result.unit === 'arcsec') {
+        angleDegrees = result.value / 3600;
+    } else {
+        // This visualization is primarily for angular deviation, so we might need a placeholder or conversion
+        // For now, let's assume we won't show this for micron results or convert it.
+        // A small micron deviation over a short distance isn't easily visualized as an angle.
+        return (
+             <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
+                <p className="text-muted-foreground">Angular visualization not applicable for μm result.</p>
+            </Card>
+        )
+    }
+
+    const exaggeration = 200; // Make the angle more visible
+    const rotation = angleDegrees * exaggeration;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle as="h3" className="text-lg font-medium">Result Visualization</CardTitle>
+                <CardDescription>Visual representation of the orthogonality error. Deviation is exaggerated for clarity.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-48">
+                <div className="w-full h-full flex items-center justify-center">
+                    <svg width="150" height="150" viewBox="-75 -75 150 150">
+                        {/* Reference Axis */}
+                        <line x1="-60" y1="0" x2="60" y2="0" stroke="hsl(var(--primary))" strokeWidth="2" />
+                        <text x="65" y="3" fill="hsl(var(--primary-foreground))" fontSize="10">Ref</text>
+                        
+                        {/* Measured Axis */}
+                        <g transform={`rotate(${-rotation})`}>
+                            <line x1="0" y1="-60" x2="0" y2="60" stroke="hsl(var(--accent))" strokeWidth="2" strokeDasharray="4 2" />
+                            <text x="3" y="-55" fill="hsl(var(--accent-foreground))" fontSize="10">Meas</text>
+                        </g>
+
+                        {/* 90-degree guide */}
+                         <path d="M -10 0 L -10 -10 L 0 -10" fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth="1" />
+                    </svg>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 function ResultChart({
     travelDistance,
@@ -785,25 +829,22 @@ function ResultChart({
 }) {
     if (!referenceMeasurement || !finalMeasurement) return null;
     
-    // We need to exaggerate the error to make it visible on the chart
     const errorExaggeration = 1000;
 
     const plotData = [
-        // Direction 1 line (reference) - always flat on the X axis
         { name: 'Start', reference: 0, measurement: 0 },
-        // The end point shows the exaggerated deviation
         { name: `End (${travelDistance}mm)`, reference: 0, measurement: (finalMeasurement.reading - referenceMeasurement.reading) * errorExaggeration }
     ];
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle as="h3" className="text-lg font-medium">Measurement Visualization</CardTitle>
-                <CardDescription>Visual representation of the deviation. Error is exaggerated for clarity.</CardDescription>
+                <CardTitle as="h3" className="text-lg font-medium">Deviation Chart</CardTitle>
+                <CardDescription>Error is exaggerated for clarity.</CardDescription>
             </CardHeader>
             <CardContent className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={plotData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                    <LineChart data={plotData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis label={{ value: `Deviation (μm x${errorExaggeration})`, angle: -90, position: 'insideLeft' }} />
@@ -854,7 +895,7 @@ function PrintableReport({
         <div className="p-2 border border-gray-400 rounded">
           <h3 className="font-bold mb-2">Final Result</h3>
           <p className="text-lg font-semibold">
-            Orthogonality: {finalResult ? finalResult.value.toFixed(2) : "N/A"}{" "}
+            Orthogonality: {finalResult ? Math.abs(finalResult.value).toFixed(2) : "N/A"}{" "}
             {finalResult?.unit}
           </p>
         </div>
