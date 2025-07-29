@@ -168,14 +168,13 @@ export function OrthoDashboard() {
   const recordSquaringMeasurement = () => {
     const distance = parseFloat(travelDistance);
     const numMeasurements = distance > 200 ? Math.floor(distance / 100) + 1 : 2;
-    const reading = squaringZero !== null ? currentReading - squaringZero : currentReading;
     
     if(squaringMeasurements.length < numMeasurements) {
         let position = 0;
         if (squaringMeasurements.length > 0) {
             position = distance > 200 ? squaringMeasurements.length * 100 : distance;
         }
-        setSquaringMeasurements(prev => [...prev, { position, reading: reading }]);
+        setSquaringMeasurements(prev => [...prev, { position, reading: currentReading }]);
     }
   };
 
@@ -392,8 +391,9 @@ export function OrthoDashboard() {
         );
       }
       case "adjustment": {
-        const liveOrthogonality = calculateOrthogonality(0, adjustmentLiveReading, distance);
+        const liveOrthogonality = adjustmentZero !== null ? calculateOrthogonality(0, adjustmentLiveReading, distance) : null;
         const inSpec = liveOrthogonality !== null && liveOrthogonality.unit === 'arcsec' && Math.abs(liveOrthogonality.value) <= SPEC_ARCSECONDS;
+        
         return (
           <Card>
             <CardHeader>
@@ -405,11 +405,17 @@ export function OrthoDashboard() {
             <CardContent className="space-y-4">
               <LiveReadingCard 
                 reading={adjustmentLiveReading}
-                orthogonality={liveOrthogonality}
+                orthogonality={adjustmentZero !== null ? liveOrthogonality : null}
                 isConnected={isConnected} 
                 onZero={() => setAdjustmentZero(currentReading)}
               />
-              <AdjustmentBar reading={adjustmentLiveReading} travelDistance={distance} spec={SPEC_ARCSECONDS} />
+              {adjustmentZero !== null ? (
+                <AdjustmentBar reading={adjustmentLiveReading} travelDistance={distance} spec={SPEC_ARCSECONDS} />
+              ) : (
+                <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
+                    <p className="text-muted-foreground">Please zero the indicator to begin live adjustment.</p>
+                </Card>
+              )}
             </CardContent>
             <CardFooter className="justify-between">
               <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
@@ -605,7 +611,7 @@ export function OrthoDashboard() {
   );
 }
 
-function LiveReadingCard({reading, isConnected, onZero, orthogonality}: {reading: number, isConnected: boolean, onZero?: () => void, orthogonality?: OrthogonalityResult}) {
+function LiveReadingCard({reading, isConnected, onZero, orthogonality}: {reading: number, isConnected: boolean, onZero?: () => void, orthogonality?: OrthogonalityResult | null}) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -638,21 +644,18 @@ function LiveReadingCard({reading, isConnected, onZero, orthogonality}: {reading
 
 function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, travelDistance: number, spec: number }) {
   const result = calculateOrthogonality(0, reading, travelDistance);
-  // Ensure we are comparing absolute values for the spec check
-  const arcsecValue = result?.unit === 'arcsec' ? Math.abs(result.value) : (result?.unit === 'μm' ? Math.abs(calculateOrthogonality(0, result.value, travelDistance)?.value ?? 999) : 999);
+  
+  const arcsecValue = result?.unit === 'arcsec' ? Math.abs(result.value) : 999;
   
   const maxDisplayArcsec = spec * 3; 
-  // Calculate the raw deviation in microns that corresponds to the max display arcseconds
   const maxDeviationMicrons = travelDistance * Math.tan(maxDisplayArcsec / 3600 * Math.PI / 180) * 1000;
   
-  // Avoid division by zero if maxDeviationMicrons is 0
   const percentage = maxDeviationMicrons !== 0 
     ? Math.max(-100, Math.min(100, (reading / maxDeviationMicrons) * 100))
     : 0;
 
   const inSpec = arcsecValue <= spec;
 
-  // Position the indicator based on the percentage. 50% is the center.
   const indicatorPosition = `calc(${50 + percentage / 2}%)`;
 
   return (
@@ -663,9 +666,7 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
         <div className="relative w-full h-8 bg-muted rounded-full overflow-hidden border">
-          {/* Red zones on both sides */}
           <div className="absolute top-0 h-full bg-red-500/50 w-full"></div>
-          {/* Green (in-spec) zone in the middle */}
           <div 
             className="absolute top-0 h-full bg-green-500/50"
             style={{ 
@@ -673,7 +674,6 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
                 width: `${ (spec / maxDisplayArcsec) * 100}%`
             }}
           ></div>
-          {/* Live indicator needle */}
           <div 
             className={cn(
               "absolute top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-full transition-all duration-200 ease-linear border-2",
