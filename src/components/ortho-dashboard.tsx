@@ -141,6 +141,7 @@ export function OrthoDashboard() {
         sendCommand("FNC 6\r");
         setStep("squaring");
     } else if (step === "squaring") {
+        sendCommand("FNC 1\r");
         setStep("referenceMeasurement");
     } else if (step === "referenceMeasurement") {
         const distance = parseFloat(travelDistance);
@@ -148,6 +149,7 @@ export function OrthoDashboard() {
         const reading2 = squaringMeasurements[squaringMeasurements.length - 1]?.reading ?? 0;
         const result = calculateOrthogonality(reading1, reading2, distance);
         setSquaringResult(result);
+        sendCommand("FNC 6\r");
         setStep("adjustment");
     } else if (step === "adjustment") {
         sendCommand("FNC 1\r");
@@ -187,10 +189,12 @@ export function OrthoDashboard() {
     }
     if (step === "referenceMeasurement") {
       setSquaringMeasurements([]);
+      sendCommand("FNC 6\r");
       setStep("squaring");
     }
     if (step === "adjustment") {
       setSquaringResult(null);
+      sendCommand("FNC 1\r");
       setStep("referenceMeasurement");
     }
     if (step === "finalMeasurement") {
@@ -232,6 +236,7 @@ export function OrthoDashboard() {
   
   const squaringLiveReading = squaringZero !== null ? currentReading - squaringZero : currentReading;
   const adjustmentLiveReading = adjustmentZero !== null ? currentReading - adjustmentZero : currentReading;
+  
   const liveOrthogonality = adjustmentZero !== null ? calculateOrthogonality(adjustmentZero, currentReading, parseFloat(travelDistance)) : null;
 
   
@@ -840,5 +845,7 @@ function AdjustmentBar({
     </Card>
   )
 }
+
+    
 
     
