@@ -92,6 +92,7 @@ export function OrthoDashboard() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [finalResult, setFinalResult] = useState<OrthogonalityResult>(null);
   const [squaringZero, setSquaringZero] = useState<number | null>(null);
+  const [squaringResult, setSquaringResult] = useState<OrthogonalityResult>(null);
   const [adjustmentZero, setAdjustmentZero] = useState<number | null>(null);
   const [reportData, setReportData] = useState<ReportData>({
     technician: "Andrew T. Jung",
@@ -115,6 +116,7 @@ export function OrthoDashboard() {
     setFinalResult(null);
     setAdjustmentZero(null);
     setSquaringZero(null);
+    setSquaringResult(null);
     if(isConnected) {
       disconnect();
     }
@@ -139,6 +141,11 @@ export function OrthoDashboard() {
         sendCommand("FNC 6\r");
         setStep("squaring");
     } else if (step === "squaring") {
+        const distance = parseFloat(travelDistance);
+        if(squaringZero !== null) {
+            const result = calculateOrthogonality(squaringZero, currentReading, distance);
+            setSquaringResult(result);
+        }
         setStep("adjustment");
     } else if (step === "adjustment") {
         sendCommand("FNC 1\r");
@@ -148,8 +155,25 @@ export function OrthoDashboard() {
         const distance = parseFloat(travelDistance);
         const reading1 = squaringMeasurements[0]?.reading ?? 0;
         const reading2 = measurements[measurements.length - 1]?.reading ?? 0;
-        const result = calculateOrthogonality(reading1, reading2, distance);
-        setFinalResult(result);
+        
+        const rawResult = calculateOrthogonality(reading1, reading2, distance);
+
+        if (rawResult) {
+            const squaringError = squaringResult?.value ?? 0;
+            // Ensure both are in the same units for subtraction if needed.
+            // Assuming both are calculated to arcsec for compensation.
+            if (rawResult.unit === 'arcsec' && squaringResult?.unit === 'arcsec') {
+                 setFinalResult({
+                    value: rawResult.value - squaringError,
+                    unit: 'arcsec'
+                });
+            } else {
+                setFinalResult(rawResult); // Fallback if units mismatch
+            }
+        } else {
+            setFinalResult(null);
+        }
+
         setStep("results");
     }
   };
@@ -158,6 +182,7 @@ export function OrthoDashboard() {
     if (step === "squaring") {
       setSquaringMeasurements([]);
       setSquaringZero(null);
+      setSquaringResult(null);
       sendCommand("FNC 1\r");
       setStep("setup");
     }
@@ -364,7 +389,7 @@ export function OrthoDashboard() {
                     <CardTitle>Step 2: Squaring Artifact to Reference Axis</CardTitle>
                     <CardDescription>
                         Use the indicator feedback to square one side of your artifact to the axis of travel.
-                        Zero the indicator at one end, move to the other, and adjust until within spec before recording reference readings.
+                        Zero the indicator at one end, move to the other, and adjust until within spec before proceeding.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
