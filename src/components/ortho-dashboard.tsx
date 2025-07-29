@@ -299,11 +299,6 @@ export function OrthoDashboard() {
                         onChange={handleReportDataChange}
                       />
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="item-4">
-                  <AccordionTrigger>Asset Information</AccordionTrigger>
-                  <AccordionContent className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="alignmentPartNumber">
                         Alignment Part Number
@@ -314,6 +309,11 @@ export function OrthoDashboard() {
                         onChange={handleReportDataChange}
                       />
                     </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-4">
+                  <AccordionTrigger>Asset Information</AccordionTrigger>
+                  <AccordionContent className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="artifactAssetNumber">
                         Artifact Asset Number
@@ -416,7 +416,7 @@ export function OrthoDashboard() {
           </Card>
         );
 
-      case "measurement":
+      case "measurement": {
         const progress = (measurements.length / numMeasurements) * 100;
         return (
             <Card>
@@ -456,7 +456,7 @@ export function OrthoDashboard() {
                 </CardFooter>
             </Card>
         );
-      
+      }
       case "results":
         return (
             <Card>
