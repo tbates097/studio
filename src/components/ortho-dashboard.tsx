@@ -430,9 +430,9 @@ export function OrthoDashboard() {
                      <Slider
                         value={[adjustmentLiveReading]}
                         onValueChange={([val]) => setSimulationReading && setSimulationReading(val + adjustmentZero)}
-                        min={-5}
-                        max={5}
-                        step={0.01}
+                        min={-300}
+                        max={300}
+                        step={1}
                       />
                    </CardContent>
                  </Card>
@@ -731,6 +731,8 @@ function AdjustmentBar({ result, travelDistance, spec }: { result: Orthogonality
     </Card>
   )
 }
+
+    
 
     
 
