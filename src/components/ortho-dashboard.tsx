@@ -10,6 +10,12 @@ import {
   CardDescription,
   CardFooter,
 } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -205,60 +211,134 @@ export function OrthoDashboard() {
     switch (step) {
       case "setup":
         return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Step 1: Setup</CardTitle>
-                    <CardDescription>Connect indicator and enter test details. Default values are for demonstration.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <Button onClick={isConnected ? disconnect : connect} className="w-full">
-                        {connectionStatus === 'connecting' ? 'Connecting...' : (isConnected ? <><Unlink/>Disconnect Indicator</> : <><Link/>Connect to Indicator</>)}
-                    </Button>
-                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="travelDistance">Travel Distance (mm)</Label>
-                            <Input id="travelDistance" type="number" value={travelDistance} onChange={(e) => setTravelDistance(e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="technician">Technician</Label>
-                            <Input id="technician" value={reportData.technician} onChange={handleReportDataChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="axis1Serial">Axis 1 Serial Number</Label>
-                            <Input id="axis1Serial" value={reportData.axis1Serial} onChange={handleReportDataChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="axis2Serial">Axis 2 Serial Number</Label>
-                            <Input id="axis2Serial" value={reportData.axis2Serial} onChange={handleReportDataChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="orderNumber">Order Number</Label>
-                            <Input id="orderNumber" value={reportData.orderNumber} onChange={handleReportDataChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="customerName">Customer Name</Label>
-                            <Input id="customerName" value={reportData.customerName} onChange={handleReportDataChange} />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="alignmentPartNumber">Alignment Part Number</Label>
-                            <Input id="alignmentPartNumber" value={reportData.alignmentPartNumber} onChange={handleReportDataChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="artifactAssetNumber">Artifact Asset Number</Label>
-                            <Input id="artifactAssetNumber" value={reportData.artifactAssetNumber} onChange={handleReportDataChange} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="indicatorAssetNumber">Indicator Asset Number</Label>
-                            <Input id="indicatorAssetNumber" value={reportData.indicatorAssetNumber} onChange={handleReportDataChange} />
-                        </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 1: Setup</CardTitle>
+              <CardDescription>
+                Connect to the indicator and enter test details. Default values
+                are for demonstration.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button onClick={isConnected ? disconnect : connect} className="w-full">
+                {connectionStatus === "connecting" ? (
+                  "Connecting..."
+                ) : isConnected ? (
+                  <>
+                    <Unlink />
+                    Disconnect Indicator
+                  </>
+                ) : (
+                  <>
+                    <Link />
+                    Connect to Indicator
+                  </>
+                )}
+              </Button>
+
+              <Accordion type="multiple" defaultValue={["item-1", "item-2", "item-3"]} className="w-full">
+                <AccordionItem value="item-1">
+                  <AccordionTrigger>Test Parameters</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      <Label htmlFor="travelDistance">Travel Distance (mm)</Label>
+                      <Input
+                        id="travelDistance"
+                        type="number"
+                        value={travelDistance}
+                        onChange={(e) => setTravelDistance(e.target.value)}
+                      />
                     </div>
-                </CardContent>
-                <CardFooter className="justify-end">
-                    <Button onClick={handleNextStep} disabled={!isConnected}>
-                        Next <ChevronRight />
-                    </Button>
-                </CardFooter>
-            </Card>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-2">
+                  <AccordionTrigger>Report Information</AccordionTrigger>
+                  <AccordionContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="technician">Technician</Label>
+                      <Input
+                        id="technician"
+                        value={reportData.technician}
+                        onChange={handleReportDataChange}
+                      />
+                    </div>
+                     <div className="space-y-2">
+                      <Label htmlFor="customerName">Customer Name</Label>
+                      <Input
+                        id="customerName"
+                        value={reportData.customerName}
+                        onChange={handleReportDataChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="orderNumber">Order Number</Label>
+                      <Input
+                        id="orderNumber"
+                        value={reportData.orderNumber}
+                        onChange={handleReportDataChange}
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-3">
+                  <AccordionTrigger>Asset Information</AccordionTrigger>
+                  <AccordionContent className="space-y-4">
+                     <div className="space-y-2">
+                      <Label htmlFor="axis1Serial">Axis 1 Serial Number</Label>
+                      <Input
+                        id="axis1Serial"
+                        value={reportData.axis1Serial}
+                        onChange={handleReportDataChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="axis2Serial">Axis 2 Serial Number</Label>
+                      <Input
+                        id="axis2Serial"
+                        value={reportData.axis2Serial}
+                        onChange={handleReportDataChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="alignmentPartNumber">
+                        Alignment Part Number
+                      </Label>
+                      <Input
+                        id="alignmentPartNumber"
+                        value={reportData.alignmentPartNumber}
+                        onChange={handleReportDataChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="artifactAssetNumber">
+                        Artifact Asset Number
+                      </Label>
+                      <Input
+                        id="artifactAssetNumber"
+                        value={reportData.artifactAssetNumber}
+                        onChange={handleReportDataChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="indicatorAssetNumber">
+                        Indicator Asset Number
+                      </Label>
+                      <Input
+                        id="indicatorAssetNumber"
+                        value={reportData.indicatorAssetNumber}
+                        onChange={handleReportDataChange}
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardContent>
+            <CardFooter className="justify-end">
+              <Button onClick={handleNextStep} disabled={!isConnected}>
+                Next <ChevronRight />
+              </Button>
+            </CardFooter>
+          </Card>
         );
 
       case "squaring":
@@ -382,7 +462,7 @@ export function OrthoDashboard() {
                 <CardContent className="space-y-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-lg font-medium">Calculated Result</CardTitle>
+                            <CardTitle as="h3" className="text-lg font-medium">Calculated Result</CardTitle>
                             <Calculator className="w-6 h-6 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="flex flex-col items-center justify-center h-32">
@@ -520,7 +600,7 @@ function LiveReadingCard({reading, isConnected, onZero}: {reading: number, isCon
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-lg font-medium">Live Reading</CardTitle>
+                <CardTitle as="h3" className="text-lg font-medium">Live Reading</CardTitle>
                 <Zap className={cn("w-6 h-6 transition-colors", isConnected ? "text-accent" : "text-muted-foreground")} />
             </CardHeader>
             <CardContent className="flex items-center justify-center h-24 text-center">
@@ -562,7 +642,7 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Live Adjustment</CardTitle>
+        <CardTitle as="h3">Live Adjustment</CardTitle>
         <CardDescription>Adjust until the indicator is in the green zone.</CardDescription>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
@@ -596,5 +676,3 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
     </Card>
   )
 }
-
-    
