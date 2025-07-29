@@ -345,7 +345,7 @@ export function OrthoDashboard() {
           </Card>
         );
 
-      case "squaring":
+      case "squaring": {
         const squaringProgress = (squaringMeasurements.length / numMeasurements) * 100;
         return (
             <Card>
@@ -390,10 +390,10 @@ export function OrthoDashboard() {
                 </CardFooter>
             </Card>
         );
-
+      }
       case "adjustment": {
-        const orthogonality = calculateOrthogonality(0, adjustmentLiveReading, distance);
-        const inSpec = orthogonality !== null && orthogonality.unit === 'arcsec' && Math.abs(orthogonality.value) <= SPEC_ARCSECONDS;
+        const liveOrthogonality = calculateOrthogonality(0, adjustmentLiveReading, distance);
+        const inSpec = liveOrthogonality !== null && liveOrthogonality.unit === 'arcsec' && Math.abs(liveOrthogonality.value) <= SPEC_ARCSECONDS;
         return (
           <Card>
             <CardHeader>
@@ -404,7 +404,8 @@ export function OrthoDashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               <LiveReadingCard 
-                reading={adjustmentLiveReading} 
+                reading={adjustmentLiveReading}
+                orthogonality={liveOrthogonality}
                 isConnected={isConnected} 
                 onZero={() => setAdjustmentZero(currentReading)}
               />
@@ -513,7 +514,7 @@ export function OrthoDashboard() {
         // Start at the same point as reference
         { x: 0, y: 0, isMeasurement: true }, 
         // The end point shows the exaggerated deviation
-        { x: parseFloat(travelDistance), y: (finalMeasurement?.reading - finalReference?.reading) * errorExaggeration, isMeasurement: true }
+        { x: parseFloat(travelDistance), y: (finalMeasurement?.reading - (finalReference?.reading ?? 0)) * errorExaggeration, isMeasurement: true }
     ];
 
     const direction1Data = plotData.filter(p => !p.isMeasurement);
@@ -604,7 +605,7 @@ export function OrthoDashboard() {
   );
 }
 
-function LiveReadingCard({reading, isConnected, onZero}: {reading: number, isConnected: boolean, onZero?: () => void}) {
+function LiveReadingCard({reading, isConnected, onZero, orthogonality}: {reading: number, isConnected: boolean, onZero?: () => void, orthogonality?: OrthogonalityResult}) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -612,10 +613,17 @@ function LiveReadingCard({reading, isConnected, onZero}: {reading: number, isCon
                 <Zap className={cn("w-6 h-6 transition-colors", isConnected ? "text-accent" : "text-muted-foreground")} />
             </CardHeader>
             <CardContent className="flex items-center justify-center h-24 text-center">
-                 <p className="text-4xl font-semibold transition-colors duration-300 font-code">
-                  {reading.toFixed(3)}{" "}
-                  <span className="text-xl text-muted-foreground">μm</span>
-                </p>
+                {orthogonality ? (
+                     <p className="text-4xl font-semibold transition-colors duration-300 font-code">
+                        {orthogonality.value.toFixed(2)}{" "}
+                        <span className="text-xl text-muted-foreground">{orthogonality.unit}</span>
+                    </p>
+                ) : (
+                     <p className="text-4xl font-semibold transition-colors duration-300 font-code">
+                        {reading.toFixed(3)}{" "}
+                        <span className="text-xl text-muted-foreground">μm</span>
+                    </p>
+                )}
             </CardContent>
              {onZero && (
                 <CardFooter>
@@ -684,7 +692,3 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
     </Card>
   )
 }
-
-    
-
-    
