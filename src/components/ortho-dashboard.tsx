@@ -87,6 +87,7 @@ export function OrthoDashboard() {
   const [squaringMeasurements, setSquaringMeasurements] = useState<Measurement[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [finalResult, setFinalResult] = useState<OrthogonalityResult>(null);
+  const [squaringZero, setSquaringZero] = useState<number | null>(null);
   const [adjustmentZero, setAdjustmentZero] = useState<number | null>(null);
   const [reportData, setReportData] = useState<ReportData>({
     technician: "Andrew T. Jung",
@@ -109,6 +110,7 @@ export function OrthoDashboard() {
     setMeasurements([]);
     setFinalResult(null);
     setAdjustmentZero(null);
+    setSquaringZero(null);
     if(isConnected) {
       disconnect();
     }
@@ -149,6 +151,7 @@ export function OrthoDashboard() {
   const handlePrevStep = () => {
     if (step === "squaring") {
       setSquaringMeasurements([]);
+      setSquaringZero(null);
       setStep("setup");
     }
     if (step === "adjustment") {
@@ -165,13 +168,14 @@ export function OrthoDashboard() {
   const recordSquaringMeasurement = () => {
     const distance = parseFloat(travelDistance);
     const numMeasurements = distance > 200 ? Math.floor(distance / 100) + 1 : 2;
+    const reading = squaringZero !== null ? currentReading - squaringZero : currentReading;
     
     if(squaringMeasurements.length < numMeasurements) {
         let position = 0;
         if (squaringMeasurements.length > 0) {
             position = distance > 200 ? squaringMeasurements.length * 100 : distance;
         }
-        setSquaringMeasurements(prev => [...prev, { position, reading: currentReading }]);
+        setSquaringMeasurements(prev => [...prev, { position, reading: reading }]);
     }
   };
 
@@ -191,18 +195,20 @@ export function OrthoDashboard() {
   useEffect(() => {
     if (step === 'squaring' && squaringMeasurements.length === 0 && isConnected) {
         // Auto-record first squaring measurement at 0mm
-        setSquaringMeasurements([{ position: 0, reading: currentReading }]);
+        const reading = squaringZero !== null ? currentReading - squaringZero : currentReading;
+        setSquaringMeasurements([{ position: 0, reading }]);
     }
     if (step === 'measurement' && measurements.length === 0 && isConnected) {
         // Auto-record first measurement at 0mm
         setMeasurements([{ position: 0, reading: currentReading }]);
     }
-  }, [step, currentReading, isConnected]);
+  }, [step, currentReading, isConnected, squaringZero]);
 
 
   const handlePrint = () => window.print();
   
-  const liveReading = adjustmentZero !== null ? currentReading - adjustmentZero : currentReading;
+  const squaringLiveReading = squaringZero !== null ? currentReading - squaringZero : currentReading;
+  const adjustmentLiveReading = adjustmentZero !== null ? currentReading - adjustmentZero : currentReading;
 
   const renderStepContent = () => {
     const distance = parseFloat(travelDistance) || 0;
@@ -357,14 +363,18 @@ export function OrthoDashboard() {
         return (
             <Card>
                 <CardHeader>
-                    <CardTitle>Step 2: Squaring First Axis</CardTitle>
+                    <CardTitle>Step 2: Squaring Artifact to Reference Axis</CardTitle>
                     <CardDescription>
                         Use the indicator feedback to square one side of your artifact to the axis of travel.
                         Record reference readings at the specified intervals.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                     <LiveReadingCard reading={currentReading} isConnected={isConnected} />
+                     <LiveReadingCard 
+                       reading={squaringLiveReading} 
+                       isConnected={isConnected} 
+                       onZero={() => setSquaringZero(currentReading)}
+                     />
                      <div className="space-y-2">
                         <Label>Reference Progress</Label>
                         <Progress value={squaringProgress} />
@@ -373,8 +383,8 @@ export function OrthoDashboard() {
                     <div className="space-y-2">
                         <Label>Recorded Reference Readings (μm)</Label>
                         <div className="p-2 border rounded-md min-h-[50px] bg-muted/50">
-                            {squaringMeasurements.map(m => (
-                                <p key={m.position}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
+                            {squaringMeasurements.map((m, i) => (
+                                <p key={i}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
                             ))}
                         </div>
                     </div>
@@ -382,7 +392,7 @@ export function OrthoDashboard() {
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
                     {squaringMeasurements.length < numMeasurements ? (
-                        <Button onClick={recordSquaringMeasurement} disabled={!isConnected}>
+                        <Button onClick={recordSquaringMeasurement} disabled={!isConnected || squaringZero === null}>
                             Record Ref. Reading ({squaringMeasurements.length === 0 ? '0' : (distance > 200 ? squaringMeasurements.length * 100 : distance)}mm) <Check/>
                         </Button>
                     ) : (
@@ -395,7 +405,7 @@ export function OrthoDashboard() {
         );
 
       case "adjustment": {
-        const orthogonality = calculateOrthogonality(0, liveReading, distance);
+        const orthogonality = calculateOrthogonality(0, adjustmentLiveReading, distance);
         const inSpec = orthogonality !== null && orthogonality.unit === 'arcsec' && Math.abs(orthogonality.value) <= SPEC_ARCSECONDS;
         return (
           <Card>
@@ -407,11 +417,11 @@ export function OrthoDashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               <LiveReadingCard 
-                reading={liveReading} 
+                reading={adjustmentLiveReading} 
                 isConnected={isConnected} 
                 onZero={() => setAdjustmentZero(currentReading)}
               />
-              <AdjustmentBar reading={liveReading} travelDistance={distance} spec={SPEC_ARCSECONDS} />
+              <AdjustmentBar reading={adjustmentLiveReading} travelDistance={distance} spec={SPEC_ARCSECONDS} />
             </CardContent>
             <CardFooter className="justify-between">
               <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
@@ -442,8 +452,8 @@ export function OrthoDashboard() {
                     <div className="space-y-2">
                         <Label>Recorded Measurements (μm)</Label>
                         <div className="p-2 border rounded-md min-h-[50px] bg-muted/50">
-                            {measurements.map(m => (
-                                <p key={m.position}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
+                            {measurements.map((m, i) => (
+                                <p key={i}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
                             ))}
                         </div>
                     </div>
