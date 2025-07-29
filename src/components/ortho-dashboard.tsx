@@ -48,7 +48,7 @@ export function OrthoDashboard() {
   const [travelDistance, setTravelDistance] = useState("150");
   const [currentReading, setCurrentReading] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
-  const [squaringRef, setSquaringRef] = useState<number | null>(null);
+  const [squaringMeasurements, setSquaringMeasurements] = useState<Measurement[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [finalResult, setFinalResult] = useState<OrthogonalityResult>(null);
 
@@ -63,7 +63,7 @@ export function OrthoDashboard() {
     setTravelDistance("150");
     setCurrentReading(0);
     setIsRunning(false);
-    setSquaringRef(null);
+    setSquaringMeasurements([]);
     setMeasurements([]);
     setFinalResult(null);
   };
@@ -82,11 +82,10 @@ export function OrthoDashboard() {
         }
         setStep("squaring");
     } else if (step === "squaring") {
-        setSquaringRef(currentReading);
         setStep("measurement");
     } else if (step === "measurement") {
         const distance = parseFloat(travelDistance);
-        const reading1 = measurements[0]?.reading ?? 0;
+        const reading1 = squaringMeasurements[0]?.reading ?? 0;
         const reading2 = measurements[measurements.length - 1]?.reading ?? 0;
         const result = calculateOrthogonality(reading1, reading2, distance);
         setFinalResult(result);
@@ -96,12 +95,28 @@ export function OrthoDashboard() {
   
   const handlePrevStep = () => {
     stopSimulation();
-    if (step === "squaring") setStep("setup");
+    if (step === "squaring") {
+      setSquaringMeasurements([]);
+      setStep("setup");
+    }
     if (step === "measurement") {
         setMeasurements([]);
         setStep("squaring");
     }
     if (step === "results") setStep("measurement");
+  };
+
+  const recordSquaringMeasurement = () => {
+    const distance = parseFloat(travelDistance);
+    const numMeasurements = distance > 200 ? Math.floor(distance / 100) + 1 : 2;
+    
+    if(squaringMeasurements.length < numMeasurements) {
+        let position = 0;
+        if (squaringMeasurements.length > 0) {
+            position = distance > 200 ? squaringMeasurements.length * 100 : distance;
+        }
+        setSquaringMeasurements(prev => [...prev, { position, reading: currentReading }]);
+    }
   };
 
   const recordMeasurement = () => {
@@ -118,6 +133,10 @@ export function OrthoDashboard() {
   };
 
   useEffect(() => {
+    if (step === 'squaring' && squaringMeasurements.length === 0) {
+        // Auto-record first squaring measurement at 0mm
+        setSquaringMeasurements([{ position: 0, reading: currentReading }]);
+    }
     if (step === 'measurement' && measurements.length === 0) {
         // Auto-record first measurement at 0mm
         setMeasurements([{ position: 0, reading: currentReading }]);
@@ -173,23 +192,43 @@ export function OrthoDashboard() {
         );
 
       case "squaring":
+        const squaringProgress = (squaringMeasurements.length / numMeasurements) * 100;
         return (
             <Card>
                 <CardHeader>
                     <CardTitle>Step 2: Squaring First Axis</CardTitle>
                     <CardDescription>
                         Use the indicator feedback to square one side of your artifact to the axis of travel.
-                        When ready, capture the reference reading.
+                        Record reference readings at the specified intervals.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                      <LiveReadingCard reading={currentReading} isRunning={isRunning} onToggle={isRunning ? stopSimulation : startSimulation} />
+                     <div className="space-y-2">
+                        <Label>Reference Progress</Label>
+                        <Progress value={squaringProgress} />
+                        <p className="text-sm text-center text-muted-foreground">{squaringMeasurements.length} of {numMeasurements} reference readings recorded.</p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Recorded Reference Readings (μm)</Label>
+                        <div className="p-2 border rounded-md min-h-[50px] bg-muted/50">
+                            {squaringMeasurements.map(m => (
+                                <p key={m.position}>Position {m.position}mm: <strong>{m.reading.toFixed(3)}</strong></p>
+                            ))}
+                        </div>
+                    </div>
                 </CardContent>
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-                    <Button onClick={handleNextStep} disabled={!isRunning}>
-                        Set Reference & Next <ChevronRight />
-                    </Button>
+                    {squaringMeasurements.length < numMeasurements ? (
+                        <Button onClick={recordSquaringMeasurement} disabled={!isRunning}>
+                            Record Ref. Reading ({squaringMeasurements.length === 0 ? '0' : (distance > 200 ? squaringMeasurements.length * 100 : distance)}mm) <Check/>
+                        </Button>
+                    ) : (
+                        <Button onClick={handleNextStep} className="bg-primary hover:bg-primary/90">
+                           Next <ChevronRight />
+                        </Button>
+                    )}
                 </CardFooter>
             </Card>
         );
@@ -282,17 +321,19 @@ export function OrthoDashboard() {
         
         <div className="grid grid-cols-2 gap-8">
             <Card className="print-shadow-none">
-              <CardHeader><CardTitle>Setup</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Setup & Reference</CardTitle></CardHeader>
               <CardContent>
                 <p><strong>Travel Distance:</strong> {travelDistance} mm</p>
-                <p><strong>Squaring Ref:</strong> {squaringRef?.toFixed(3)} μm</p>
+                 {squaringMeasurements.map(m => (
+                    <p key={`squaring-${m.position}`}><strong>Ref. @ {m.position}mm:</strong> {m.reading.toFixed(3)} μm</p>
+                 ))}
               </CardContent>
             </Card>
              <Card className="print-shadow-none">
               <CardHeader><CardTitle>Final Readings</CardTitle></CardHeader>
               <CardContent>
                  {measurements.map(m => (
-                    <p key={m.position}><strong>{m.position}mm Reading:</strong> {m.reading.toFixed(3)} μm</p>
+                    <p key={`measurement-${m.position}`}><strong>Reading @ {m.position}mm:</strong> {m.reading.toFixed(3)} μm</p>
                  ))}
               </CardContent>
             </Card>
@@ -354,5 +395,7 @@ function LiveReadingCard({reading, isRunning, onToggle}: {reading: number, isRun
         </Card>
     )
 }
+
+    
 
     
