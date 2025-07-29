@@ -776,9 +776,6 @@ function OrthogonalityVisualization({ result }: { result: OrthogonalityResult })
     if (result.unit === 'arcsec') {
         angleDegrees = result.value / 3600;
     } else {
-        // This visualization is primarily for angular deviation, so we might need a placeholder or conversion
-        // For now, let's assume we won't show this for micron results or convert it.
-        // A small micron deviation over a short distance isn't easily visualized as an angle.
         return (
              <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
                 <p className="text-muted-foreground">Angular visualization not applicable for μm result.</p>
@@ -802,14 +799,17 @@ function OrthogonalityVisualization({ result }: { result: OrthogonalityResult })
                         <line x1="-60" y1="0" x2="60" y2="0" stroke="hsl(var(--primary))" strokeWidth="2" />
                         <text x="65" y="3" fill="hsl(var(--primary-foreground))" fontSize="10">Ref</text>
                         
+                        {/* Ideal 90-degree line (dashed) */}
+                        <line x1="0" y1="-60" x2="0" y2="60" stroke="hsl(var(--muted-foreground))" strokeWidth="1" strokeDasharray="3 3" />
+                        
                         {/* Measured Axis */}
                         <g transform={`rotate(${-rotation})`}>
-                            <line x1="0" y1="-60" x2="0" y2="60" stroke="hsl(var(--accent))" strokeWidth="2" strokeDasharray="4 2" />
-                            <text x="3" y="-55" fill="hsl(var(--accent-foreground))" fontSize="10">Meas</text>
+                            <line x1="0" y1="-60" x2="0" y2="60" stroke="hsl(var(--accent))" strokeWidth="2" />
+                             <text x="3" y="-55" fill="hsl(var(--accent-foreground))" fontSize="10">Meas</text>
                         </g>
 
-                        {/* 90-degree guide */}
-                         <path d="M -10 0 L -10 -10 L 0 -10" fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth="1" />
+                        {/* 90-degree guide arc */}
+                         <path d="M 10 0 A 10 10 0 0 1 0 -10" fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth="1" />
                     </svg>
                 </div>
             </CardContent>
@@ -844,7 +844,7 @@ function ResultChart({
             </CardHeader>
             <CardContent className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={plotData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <LineChart data={plotData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis label={{ value: `Deviation (μm x${errorExaggeration})`, angle: -90, position: 'insideLeft' }} />
