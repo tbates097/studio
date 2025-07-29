@@ -360,6 +360,7 @@ export function OrthoDashboard() {
                        reading={squaringLiveReading} 
                        isConnected={isConnected} 
                        onZero={() => setSquaringZero(currentReading)}
+                       showMicronsOnly
                      />
                      <div className="space-y-2">
                         <Label>Reference Progress</Label>
@@ -405,10 +406,9 @@ export function OrthoDashboard() {
             <CardContent className="space-y-4">
               <LiveReadingCard 
                 reading={adjustmentLiveReading}
-                orthogonality={adjustmentZero !== null ? liveOrthogonality : null}
                 isConnected={isConnected} 
                 onZero={() => setAdjustmentZero(currentReading)}
-                showMicrons={adjustmentZero === null}
+                showMicronsOnly
               />
               {adjustmentZero !== null ? (
                 <AdjustmentBar reading={adjustmentLiveReading} travelDistance={distance} spec={SPEC_ARCSECONDS} />
@@ -438,7 +438,7 @@ export function OrthoDashboard() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <LiveReadingCard reading={currentReading} isConnected={isConnected} showMicrons={true} />
+                    <LiveReadingCard reading={currentReading} isConnected={isConnected} showMicronsOnly />
                      <div className="space-y-2">
                         <Label>Measurement Progress</Label>
                         <Progress value={progress} />
@@ -615,18 +615,14 @@ export function OrthoDashboard() {
 function LiveReadingCard({
     reading, 
     isConnected, 
-    onZero, 
-    orthogonality,
-    showMicrons = false
+    onZero,
+    showMicronsOnly = false,
 }: {
     reading: number, 
     isConnected: boolean, 
-    onZero?: () => void, 
-    orthogonality?: OrthogonalityResult | null,
-    showMicrons?: boolean
+    onZero?: () => void,
+    showMicronsOnly?: boolean,
 }) {
-    const displayValue = orthogonality?.value ?? reading;
-    const displayUnit = orthogonality?.unit ?? "μm";
 
     return (
         <Card>
@@ -635,17 +631,10 @@ function LiveReadingCard({
                 <Zap className={cn("w-6 h-6 transition-colors", isConnected ? "text-accent" : "text-muted-foreground")} />
             </CardHeader>
             <CardContent className="flex items-center justify-center h-24 text-center">
-                {(orthogonality && !showMicrons) ? (
-                     <p className="text-4xl font-semibold transition-colors duration-300 font-code">
-                        {displayValue.toFixed(2)}{" "}
-                        <span className="text-xl text-muted-foreground">{displayUnit}</span>
-                    </p>
-                ) : (
-                     <p className="text-4xl font-semibold transition-colors duration-300 font-code">
-                        {reading.toFixed(3)}{" "}
-                        <span className="text-xl text-muted-foreground">μm</span>
-                    </p>
-                )}
+                 <p className="text-4xl font-semibold transition-colors duration-300 font-code">
+                    {reading.toFixed(3)}{" "}
+                    <span className="text-xl text-muted-foreground">μm</span>
+                </p>
             </CardContent>
              {onZero && (
                 <CardFooter>
