@@ -253,86 +253,92 @@ export function OrthoDashboard() {
                 </AccordionItem>
                 <AccordionItem value="item-2">
                   <AccordionTrigger>Report Information</AccordionTrigger>
-                  <AccordionContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="technician">Technician</Label>
-                      <Input
-                        id="technician"
-                        value={reportData.technician}
-                        onChange={handleReportDataChange}
-                      />
-                    </div>
-                     <div className="space-y-2">
-                      <Label htmlFor="customerName">Customer Name</Label>
-                      <Input
-                        id="customerName"
-                        value={reportData.customerName}
-                        onChange={handleReportDataChange}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="orderNumber">Order Number</Label>
-                      <Input
-                        id="orderNumber"
-                        value={reportData.orderNumber}
-                        onChange={handleReportDataChange}
-                      />
+                  <AccordionContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="technician">Technician</Label>
+                        <Input
+                          id="technician"
+                          value={reportData.technician}
+                          onChange={handleReportDataChange}
+                        />
+                      </div>
+                       <div className="space-y-2">
+                        <Label htmlFor="customerName">Customer Name</Label>
+                        <Input
+                          id="customerName"
+                          value={reportData.customerName}
+                          onChange={handleReportDataChange}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="orderNumber">Order Number</Label>
+                        <Input
+                          id="orderNumber"
+                          value={reportData.orderNumber}
+                          onChange={handleReportDataChange}
+                        />
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
                  <AccordionItem value="item-3">
                   <AccordionTrigger>Stage Information</AccordionTrigger>
-                  <AccordionContent className="space-y-4">
-                     <div className="space-y-2">
-                      <Label htmlFor="axis1Serial">Axis 1 Serial Number</Label>
-                      <Input
-                        id="axis1Serial"
-                        value={reportData.axis1Serial}
-                        onChange={handleReportDataChange}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="axis2Serial">Axis 2 Serial Number</Label>
-                      <Input
-                        id="axis2Serial"
-                        value={reportData.axis2Serial}
-                        onChange={handleReportDataChange}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="alignmentPartNumber">
-                        Alignment Part Number
-                      </Label>
-                      <Input
-                        id="alignmentPartNumber"
-                        value={reportData.alignmentPartNumber}
-                        onChange={handleReportDataChange}
-                      />
+                  <AccordionContent>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div className="space-y-2">
+                        <Label htmlFor="axis1Serial">Axis 1 Serial Number</Label>
+                        <Input
+                          id="axis1Serial"
+                          value={reportData.axis1Serial}
+                          onChange={handleReportDataChange}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="axis2Serial">Axis 2 Serial Number</Label>
+                        <Input
+                          id="axis2Serial"
+                          value={reportData.axis2Serial}
+                          onChange={handleReportDataChange}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="alignmentPartNumber">
+                          Alignment Part Number
+                        </Label>
+                        <Input
+                          id="alignmentPartNumber"
+                          value={reportData.alignmentPartNumber}
+                          onChange={handleReportDataChange}
+                        />
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="item-4">
                   <AccordionTrigger>Asset Information</AccordionTrigger>
-                  <AccordionContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="artifactAssetNumber">
-                        Artifact Asset Number
-                      </Label>
-                      <Input
-                        id="artifactAssetNumber"
-                        value={reportData.artifactAssetNumber}
-                        onChange={handleReportDataChange}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="indicatorAssetNumber">
-                        Indicator Asset Number
-                      </Label>
-                      <Input
-                        id="indicatorAssetNumber"
-                        value={reportData.indicatorAssetNumber}
-                        onChange={handleReportDataChange}
-                      />
+                  <AccordionContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="artifactAssetNumber">
+                          Artifact Asset Number
+                        </Label>
+                        <Input
+                          id="artifactAssetNumber"
+                          value={reportData.artifactAssetNumber}
+                          onChange={handleReportDataChange}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="indicatorAssetNumber">
+                          Indicator Asset Number
+                        </Label>
+                        <Input
+                          id="indicatorAssetNumber"
+                          value={reportData.indicatorAssetNumber}
+                          onChange={handleReportDataChange}
+                        />
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -388,7 +394,7 @@ export function OrthoDashboard() {
             </Card>
         );
 
-      case "adjustment":
+      case "adjustment": {
         const orthogonality = calculateOrthogonality(0, liveReading, distance);
         const inSpec = orthogonality !== null && orthogonality.unit === 'arcsec' && Math.abs(orthogonality.value) <= SPEC_ARCSECONDS;
         return (
@@ -415,7 +421,7 @@ export function OrthoDashboard() {
             </CardFooter>
           </Card>
         );
-
+      }
       case "measurement": {
         const progress = (measurements.length / numMeasurements) * 100;
         return (
@@ -681,3 +687,5 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
     </Card>
   )
 }
+
+    
