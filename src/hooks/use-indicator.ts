@@ -26,6 +26,15 @@ export function useIndicator() {
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const keepReadingRef = useRef(false);
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const simulationBaseReadingRef = useRef(0);
+
+  // Expose a function to manually set the simulation reading
+  const setSimulationReading = useCallback((newReading: number) => {
+    if (IS_SIMULATION_ENABLED) {
+        simulationBaseReadingRef.current = newReading;
+        setReading(newReading);
+    }
+  }, []);
 
   const disconnect = useCallback(async () => {
     // --- Simulation Disconnect ---
@@ -140,13 +149,14 @@ export function useIndicator() {
                 title: "Simulator Connected",
                 description: "Successfully connected to the measurement simulator.",
             });
-            let baseReading = Math.random() * 10;
-            simulationIntervalRef.current = setInterval(() => {
-                // Simulate small fluctuations
-                const fluctuation = (Math.random() - 0.5) * 0.1;
-                baseReading += fluctuation;
-                setReading(baseReading);
-            }, 100); // Update every 100ms
+            simulationBaseReadingRef.current = Math.random() * 10;
+            // Only run the interval if not being manually controlled
+            if (!simulationIntervalRef.current) {
+              simulationIntervalRef.current = setInterval(() => {
+                  const fluctuation = (Math.random() - 0.5) * 0.01;
+                  setReading(prev => prev + fluctuation);
+              }, 150);
+            }
         }, 1000); // Simulate connection delay
         return;
     }
@@ -205,5 +215,7 @@ export function useIndicator() {
     };
   }, [connectionStatus, disconnect]);
 
-  return { reading, connect, disconnect, connectionStatus };
+  return { reading, connect, disconnect, connectionStatus, isSimulation: IS_SIMULATION_ENABLED, setSimulationReading };
 }
+
+    

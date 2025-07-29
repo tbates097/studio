@@ -48,6 +48,7 @@ import { Logo } from "./icons/logo";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useIndicator } from "@/hooks/use-indicator";
+import { Slider } from "@/components/ui/slider";
 
 
 type Step = "setup" | "squaring" | "adjustment" | "measurement" | "results";
@@ -82,7 +83,9 @@ export function OrthoDashboard() {
     reading: currentReading, 
     connect, 
     disconnect, 
-    connectionStatus 
+    connectionStatus,
+    isSimulation,
+    setSimulationReading,
   } = useIndicator();
   const [squaringMeasurements, setSquaringMeasurements] = useState<Measurement[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
@@ -409,8 +412,33 @@ export function OrthoDashboard() {
               <LiveReadingCard 
                 reading={adjustmentLiveReading}
                 isConnected={isConnected} 
-                onZero={() => setAdjustmentZero(currentReading)}
+                onZero={() => {
+                  setAdjustmentZero(currentReading)
+                  if (isSimulation && setSimulationReading) {
+                    setSimulationReading(currentReading);
+                  }
+                }}
               />
+              
+              {isSimulation && adjustmentZero !== null && (
+                 <Card>
+                  <CardHeader>
+                    <CardTitle as="h3" className="text-base">Adjustment Simulator</CardTitle>
+                    <CardDescription className="text-xs">Use this slider to simulate turning the adjustment screw.</CardDescription>
+                  </CardHeader>
+                   <CardContent>
+                     <Slider
+                        value={[adjustmentLiveReading]}
+                        onValueChange={([val]) => setSimulationReading && setSimulationReading(val + adjustmentZero)}
+                        min={-5}
+                        max={5}
+                        step={0.01}
+                      />
+                   </CardContent>
+                 </Card>
+              )}
+
+
               {adjustmentZero !== null ? (
                 <AdjustmentBar 
                   result={liveOrthogonality} 
@@ -652,18 +680,20 @@ function LiveReadingCard({
 
 function AdjustmentBar({ result, travelDistance, spec }: { result: OrthogonalityResult, travelDistance: number, spec: number }) {
   const arcsecValue = result?.unit === 'arcsec' ? Math.abs(result.value) : 0;
+  
+  // Convert the live reading (which could be in arcsec or microns) to a consistent micron deviation for the bar display
   const readingInMicrons = result?.unit === 'arcsec' 
-    ? (travelDistance * Math.tan(result.value / 3600 * Math.PI / 180) * 1000)
+    ? (travelDistance * Math.tan(result.value * (Math.PI / 180 / 3600))) * 1000
     : result?.value ?? 0;
 
   const maxDisplayArcsec = spec * 3; 
-  const maxDeviationMicrons = travelDistance * Math.tan(maxDisplayArcsec / 3600 * Math.PI / 180) * 1000;
+  const maxDeviationMicrons = travelDistance * Math.tan(maxDisplayArcsec * (Math.PI / 180 / 3600)) * 1000;
   
   const percentage = maxDeviationMicrons !== 0 
     ? Math.max(-100, Math.min(100, (readingInMicrons / maxDeviationMicrons) * 100))
     : 0;
 
-  const inSpec = arcsecValue <= spec;
+  const inSpec = arcsecValue <= spec && result?.unit === 'arcsec';
 
   const indicatorPosition = `calc(${50 + percentage / 2}%)`;
 
@@ -694,12 +724,14 @@ function AdjustmentBar({ result, travelDistance, spec }: { result: Orthogonality
         <div className="text-center">
             <p className="font-bold text-lg">{result ? `${result.value.toFixed(2)} ${result.unit}` : 'Calculating...'}</p>
             <p className={cn("font-semibold", inSpec ? "text-green-500" : "text-red-500")}>
-                {inSpec ? "✔ In Spec" : "✖ Out of Spec"}
+                {inSpec ? "✔ In Spec" : (result?.unit === 'arcsec' ? "✖ Out of Spec" : "Adjust for Arcsecond Reading")}
             </p>
         </div>
       </CardContent>
     </Card>
   )
 }
+
+    
 
     
