@@ -194,7 +194,7 @@ export function OrthoDashboard() {
   const handlePrint = () => window.print();
   
   const squaringLiveReading = squaringZero !== null ? currentReading - squaringZero : currentReading;
-  const adjustmentLiveReading = adjustmentZero !== null ? currentReading - adjustmentZero : 0;
+  const adjustmentLiveReading = adjustmentZero !== null ? currentReading - adjustmentZero : currentReading;
   
   const renderStepContent = () => {
     const distance = parseFloat(travelDistance) || 0;
@@ -360,7 +360,6 @@ export function OrthoDashboard() {
                        reading={squaringLiveReading} 
                        isConnected={isConnected} 
                        onZero={() => setSquaringZero(currentReading)}
-                       showMicronsOnly
                      />
                      <div className="space-y-2">
                         <Label>Reference Progress</Label>
@@ -392,7 +391,10 @@ export function OrthoDashboard() {
         );
       }
       case "adjustment": {
-        const liveOrthogonality = calculateOrthogonality(0, adjustmentLiveReading, distance);
+        const liveOrthogonality = adjustmentZero !== null 
+            ? calculateOrthogonality(adjustmentZero, currentReading, distance) 
+            : null;
+        
         const inSpec = liveOrthogonality !== null && liveOrthogonality.unit === 'arcsec' && Math.abs(liveOrthogonality.value) <= SPEC_ARCSECONDS;
         
         return (
@@ -408,10 +410,13 @@ export function OrthoDashboard() {
                 reading={adjustmentLiveReading}
                 isConnected={isConnected} 
                 onZero={() => setAdjustmentZero(currentReading)}
-                showMicronsOnly
               />
               {adjustmentZero !== null ? (
-                <AdjustmentBar reading={adjustmentLiveReading} travelDistance={distance} spec={SPEC_ARCSECONDS} />
+                <AdjustmentBar 
+                  result={liveOrthogonality} 
+                  travelDistance={distance} 
+                  spec={SPEC_ARCSECONDS} 
+                />
               ) : (
                 <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
                     <p className="text-muted-foreground">Please zero the indicator to begin live adjustment.</p>
@@ -438,7 +443,7 @@ export function OrthoDashboard() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <LiveReadingCard reading={currentReading} isConnected={isConnected} showMicronsOnly />
+                    <LiveReadingCard reading={currentReading} isConnected={isConnected} />
                      <div className="space-y-2">
                         <Label>Measurement Progress</Label>
                         <Progress value={progress} />
@@ -616,12 +621,10 @@ function LiveReadingCard({
     reading, 
     isConnected, 
     onZero,
-    showMicronsOnly = false,
 }: {
     reading: number, 
     isConnected: boolean, 
     onZero?: () => void,
-    showMicronsOnly?: boolean,
 }) {
 
     return (
@@ -647,16 +650,17 @@ function LiveReadingCard({
     )
 }
 
-function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, travelDistance: number, spec: number }) {
-  const result = calculateOrthogonality(0, reading, travelDistance);
-  
-  const arcsecValue = result?.unit === 'arcsec' ? Math.abs(result.value) : 999;
-  
+function AdjustmentBar({ result, travelDistance, spec }: { result: OrthogonalityResult, travelDistance: number, spec: number }) {
+  const arcsecValue = result?.unit === 'arcsec' ? Math.abs(result.value) : 0;
+  const readingInMicrons = result?.unit === 'arcsec' 
+    ? (travelDistance * Math.tan(result.value / 3600 * Math.PI / 180) * 1000)
+    : result?.value ?? 0;
+
   const maxDisplayArcsec = spec * 3; 
   const maxDeviationMicrons = travelDistance * Math.tan(maxDisplayArcsec / 3600 * Math.PI / 180) * 1000;
   
   const percentage = maxDeviationMicrons !== 0 
-    ? Math.max(-100, Math.min(100, (reading / maxDeviationMicrons) * 100))
+    ? Math.max(-100, Math.min(100, (readingInMicrons / maxDeviationMicrons) * 100))
     : 0;
 
   const inSpec = arcsecValue <= spec;
