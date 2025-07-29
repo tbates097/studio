@@ -192,19 +192,6 @@ export function OrthoDashboard() {
     }
   };
 
-  useEffect(() => {
-    if (step === 'squaring' && squaringMeasurements.length === 0 && isConnected) {
-        // Auto-record first squaring measurement at 0mm
-        const reading = squaringZero !== null ? currentReading - squaringZero : currentReading;
-        setSquaringMeasurements([{ position: 0, reading }]);
-    }
-    if (step === 'measurement' && measurements.length === 0 && isConnected) {
-        // Auto-record first measurement at 0mm
-        setMeasurements([{ position: 0, reading: currentReading }]);
-    }
-  }, [step, currentReading, isConnected, squaringZero]);
-
-
   const handlePrint = () => window.print();
   
   const squaringLiveReading = squaringZero !== null ? currentReading - squaringZero : currentReading;
@@ -697,5 +684,7 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
     </Card>
   )
 }
+
+    
 
     
