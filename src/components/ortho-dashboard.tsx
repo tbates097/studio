@@ -26,6 +26,16 @@ import {
   ChevronRight,
   Settings,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { calculateOrthogonality } from "@/lib/calculations";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "./icons/logo";
@@ -46,11 +56,22 @@ type OrthogonalityResult = {
   unit: "arcsec" | "μm";
 } | null;
 
+type ReportData = {
+  technician: string;
+  axis1Serial: string;
+  axis2Serial: string;
+  orderNumber: string;
+  customerName: string;
+  alignmentPartNumber: string;
+  artifactAssetNumber: string;
+  indicatorAssetNumber: string;
+};
+
 const SPEC_ARCSECONDS = 5;
 
 export function OrthoDashboard() {
   const [step, setStep] = useState<Step>("setup");
-  const [travelDistance, setTravelDistance] = useState("150");
+  const [travelDistance, setTravelDistance] = useState("100");
   const { 
     reading: currentReading, 
     connect, 
@@ -61,6 +82,16 @@ export function OrthoDashboard() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [finalResult, setFinalResult] = useState<OrthogonalityResult>(null);
   const [adjustmentZero, setAdjustmentZero] = useState<number | null>(null);
+  const [reportData, setReportData] = useState<ReportData>({
+    technician: "Andrew T. Jung",
+    axis1Serial: "643237-1-1-X",
+    axis2Serial: "643237-1-1-Y",
+    orderNumber: "643237",
+    customerName: "Plant & Mill - Singapore",
+    alignmentPartNumber: "PA5",
+    artifactAssetNumber: "0346",
+    indicatorAssetNumber: "05614",
+  });
 
   const { toast } = useToast();
 
@@ -68,7 +99,6 @@ export function OrthoDashboard() {
 
   const resetProcess = () => {
     setStep("setup");
-    setTravelDistance("150");
     setSquaringMeasurements([]);
     setMeasurements([]);
     setFinalResult(null);
@@ -76,6 +106,11 @@ export function OrthoDashboard() {
     if(isConnected) {
       disconnect();
     }
+  };
+
+  const handleReportDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setReportData(prev => ({ ...prev, [id]: value }));
   };
 
   const handleNextStep = () => {
@@ -97,8 +132,6 @@ export function OrthoDashboard() {
         setStep("measurement");
     } else if (step === "measurement") {
         const distance = parseFloat(travelDistance);
-        // We now use the first squaring measurement as the initial reference (reading1)
-        // and the last measurement as the final reading (reading2)
         const reading1 = squaringMeasurements[0]?.reading ?? 0;
         const reading2 = measurements[measurements.length - 1]?.reading ?? 0;
         const result = calculateOrthogonality(reading1, reading2, distance);
@@ -175,20 +208,50 @@ export function OrthoDashboard() {
             <Card>
                 <CardHeader>
                     <CardTitle>Step 1: Setup</CardTitle>
-                    <CardDescription>Connect to your indicator and enter the total travel distance for the measurement.</CardDescription>
+                    <CardDescription>Connect indicator and enter test details. Default values are for demonstration.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <Button onClick={isConnected ? disconnect : connect} className="w-full">
                         {connectionStatus === 'connecting' ? 'Connecting...' : (isConnected ? <><Unlink/>Disconnect Indicator</> : <><Link/>Connect to Indicator</>)}
                     </Button>
-                    <Label htmlFor="distance">Total Travel Distance (mm)</Label>
-                    <Input
-                        id="distance"
-                        type="number"
-                        value={travelDistance}
-                        onChange={(e) => setTravelDistance(e.target.value)}
-                        placeholder="e.g., 150"
-                    />
+                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="travelDistance">Travel Distance (mm)</Label>
+                            <Input id="travelDistance" type="number" value={travelDistance} onChange={(e) => setTravelDistance(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="technician">Technician</Label>
+                            <Input id="technician" value={reportData.technician} onChange={handleReportDataChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="axis1Serial">Axis 1 Serial Number</Label>
+                            <Input id="axis1Serial" value={reportData.axis1Serial} onChange={handleReportDataChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="axis2Serial">Axis 2 Serial Number</Label>
+                            <Input id="axis2Serial" value={reportData.axis2Serial} onChange={handleReportDataChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="orderNumber">Order Number</Label>
+                            <Input id="orderNumber" value={reportData.orderNumber} onChange={handleReportDataChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="customerName">Customer Name</Label>
+                            <Input id="customerName" value={reportData.customerName} onChange={handleReportDataChange} />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="alignmentPartNumber">Alignment Part Number</Label>
+                            <Input id="alignmentPartNumber" value={reportData.alignmentPartNumber} onChange={handleReportDataChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="artifactAssetNumber">Artifact Asset Number</Label>
+                            <Input id="artifactAssetNumber" value={reportData.artifactAssetNumber} onChange={handleReportDataChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="indicatorAssetNumber">Indicator Asset Number</Label>
+                            <Input id="indicatorAssetNumber" value={reportData.indicatorAssetNumber} onChange={handleReportDataChange} />
+                        </div>
+                    </div>
                 </CardContent>
                 <CardFooter className="justify-end">
                     <Button onClick={handleNextStep} disabled={!isConnected}>
@@ -264,7 +327,7 @@ export function OrthoDashboard() {
               <Button onClick={handleNextStep} disabled={!inSpec} className="bg-primary hover:bg-primary/90">
                   {inSpec ? "Adjustment Complete" : "Within Spec to Proceed"} <ChevronRight />
               </Button>
-            </CardFooter>
+            </Footer>
           </Card>
         );
 
@@ -314,7 +377,7 @@ export function OrthoDashboard() {
             <Card>
                 <CardHeader>
                     <CardTitle>Step 5: Results</CardTitle>
-                    <CardDescription>The orthogonality measurement is complete.</CardDescription>
+                    <CardDescription>The orthogonality measurement is complete. Review and generate your report.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <Card>
@@ -342,53 +405,97 @@ export function OrthoDashboard() {
         );
     }
   };
+  
+    const chartData = [
+        { name: 'Start', direction1: 0, direction2: squaringMeasurements[0]?.reading ?? 0 },
+        { name: 'End', direction1: parseFloat(travelDistance), direction2: squaringMeasurements[0]?.reading ?? 0 },
+        { name: 'End', direction1: parseFloat(travelDistance), direction2: measurements[measurements.length-1]?.reading ?? 0 },
+    ];
+    
+    // We need to exaggerate the error to make it visible on the chart
+    const errorExaggeration = 1000;
+    const finalMeasurement = measurements[measurements.length - 1];
+    const finalReference = squaringMeasurements[0];
+
+    const plotData = [
+        // Direction 1 line (reference) - always flat on the X axis
+        { x: 0, y: 0 },
+        { x: parseFloat(travelDistance), y: 0 },
+        // Direction 2 line (measurement)
+        // Start at the same point as reference
+        { x: 0, y: 0, isMeasurement: true }, 
+        // The end point shows the exaggerated deviation
+        { x: parseFloat(travelDistance), y: (finalMeasurement?.reading - finalReference?.reading) * errorExaggeration, isMeasurement: true }
+    ];
+
+    const direction1Data = plotData.filter(p => !p.isMeasurement);
+    const direction2Data = plotData.filter(p => p.isMeasurement);
+
 
   return (
     <>
-      <div id="print-report" className="hidden printable-area">
-        <div className="flex items-center gap-4 mb-8">
-          <Logo className="w-12 h-12 text-primary" />
-          <div>
-            <h1 className="text-3xl font-bold font-headline text-primary">OrthoPrecision</h1>
-            <p className="text-muted-foreground">Measurement Report</p>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-8">
-            <Card className="print-shadow-none">
-              <CardHeader><CardTitle>Setup & Reference</CardTitle></CardHeader>
-              <CardContent>
-                <p><strong>Travel Distance:</strong> {travelDistance} mm</p>
-                 {squaringMeasurements.map(m => (
-                    <p key={`squaring-${m.position}`}><strong>Ref. @ {m.position}mm:</strong> {m.reading.toFixed(3)} μm</p>
-                 ))}
-              </CardContent>
-            </Card>
-             <Card className="print-shadow-none">
-              <CardHeader><CardTitle>Final Readings</CardTitle></CardHeader>
-              <CardContent>
-                 {measurements.map(m => (
-                    <p key={`measurement-${m.position}`}><strong>Reading @ {m.position}mm:</strong> {m.reading.toFixed(3)} μm</p>
-                 ))}
-              </CardContent>
-            </Card>
-        </div>
+      <div id="print-report" className="hidden print-block">
+        <div className="p-8 font-sans bg-white text-black printable-area">
+            <header className="flex flex-col items-center mb-8">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 258.4 51.1"><path d="M129.2 24.8c-2-3.5-3.8-6.6-5.5-9.2-2.3-3.6-4.6-6.4-6.8-8.3-2.3-2-4.9-3-7.9-3-2.3 0-4.3.7-6.2 2s-3.4 3.3-4.6 5.8c-1.2 2.5-2 5.5-2.4 8.8h21.4v2h-34.1c.1 3.5.7 6.6 1.8 9.2 1.1 2.6 2.7 4.7 4.8 6.1 2.1 1.5 4.5 2.2 7.2 2.2 3.1 0 5.8-1 8.2-2.9 2.4-2 4.4-4.7 5.9-8.2l-10-5.7-1.7 3c-.7 1.2-1.5 2.2-2.4 2.9-.9.7-1.9 1-3.1 1-1.4 0-2.6-.5-3.6-1.5-1-1-1.5-2.4-1.7-4.1H88.7c.4 4.3 1.7 7.9 3.8 10.7 2.2 2.8 5 4.9 8.6 6.2 3.6 1.3 7.6 2 12 2s8.5-.7 12-2c3.5-1.3 6.3-3.4 8.6-6.2 2.2-2.8 3.6-6.4 3.8-10.7h-23.4v-2h23.4c-.4-3.3-1.2-6.2-2.4-8.7-1.2-2.6-2.9-4.6-4.9-6-2-1.4-4.4-2.1-7.1-2.1-2.5 0-4.8.8-6.8 2.3-2 1.5-3.6 3.8-4.9 6.7l11.2 6.5 2-3.5zM38.8 48.1V3h12.8v45.1h-12.8zM58 48.1V3h37.8v11.3H70.8v7.4h23.4v11.3H70.8v15.1H58zM148.8 48.1V3h12.8v33.8h25.7v11.3h-38.5zM203.4 32.7c-2-3.5-3.8-6.6-5.5-9.2-2.3-3.6-4.6-6.4-6.8-8.3-2.3-2-4.9-3-7.9-3-2.3 0-4.3.7-6.2 2s-3.4 3.3-4.6 5.8c-1.2 2.5-2 5.5-2.4 8.8h21.4v2h-34.1c.1 3.5.7 6.6 1.8 9.2 1.1 2.6 2.7 4.7 4.8 6.1 2.1 1.5 4.5 2.2 7.2 2.2 3.1 0 5.8-1 8.2-2.9 2.4-2 4.4-4.7 5.9-8.2l-10-5.7-1.7 3c-.7 1.2-1.5 2.2-2.4 2.9-.9.7-1.9 1-3.1 1-1.4 0-2.6-.5-3.6-1.5-1-1-1.5-2.4-1.7-4.1h-12.5c.4 4.3 1.7 7.9 3.8 10.7 2.2 2.8 5 4.9 8.6 6.2 3.6 1.3 7.6 2 12 2s8.5-.7 12-2c3.5-1.3 6.3-3.4 8.6-6.2 2.2-2.8 3.6-6.4 3.8-10.7h-23.4v-2h23.4c-.4-3.3-1.2-6.2-2.4-8.7-1.2-2.6-2.9-4.6-4.9-6-2-1.4-4.4-2.1-7.1-2.1-2.5 0-4.8.8-6.8 2.3-2 1.5-3.6 3.8-4.9 6.7l11.2 6.5 2-3.5zM220.2 48.1V3h12.8v33.8h25.4v11.3h-38.2zM27.5 25.1 13.7 3.3H0l20.6 30.2L13.8 48h13.7l7-10.3 7.1 10.3h13.7l-7.1-14.6L48.9 3.3H35.2l-7.7 10.5z" fill="#00ADEF"></path></svg>
+                <h2 className="text-2xl mt-2 font-bold">Axis Alignment</h2>
+            </header>
 
-        <Card className="mt-8 print-shadow-none">
-          <CardHeader><CardTitle className="text-center">Final Result</CardTitle></CardHeader>
-          <CardContent className="text-center">
-            <p className="text-5xl font-bold text-accent font-headline">
-              {finalResult ? finalResult.value.toFixed(3) : "N/A"}
-            </p>
-            <p className="text-xl text-muted-foreground">{finalResult?.unit}</p>
-          </CardContent>
-        </Card>
-        <div className="mt-8 text-xs text-center text-muted-foreground">
-            Report generated on {new Date().toLocaleString()}
+            <section className="w-full h-[450px] border border-gray-300 p-4 relative mb-8">
+                 <ResponsiveContainer width="100%" height="100%">
+                    <LineChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                            type="number" 
+                            dataKey="x" 
+                            domain={[0, parseFloat(travelDistance)]} 
+                            label={{ value: "Direction 1", position: 'insideBottom', offset: -10 }} 
+                        />
+                        <YAxis 
+                            type="number"
+                            dataKey="y"
+                            label={{ value: "Direction 2", angle: -90, position: 'insideLeft' }} 
+                        />
+                        <Tooltip />
+                        <Line data={direction1Data} dataKey="y" stroke="red" strokeWidth={2} dot={false} name="Reference" />
+                        <Line data={direction2Data} dataKey="y" stroke="blue" strokeWidth={2} dot={{ stroke: 'blue', strokeWidth: 2, r: 4, fill: 'blue' }} name="Measurement" />
+                    </LineChart>
+                </ResponsiveContainer>
+                <p className="absolute top-4 right-4 text-sm text-gray-600">Error Exaggerated {errorExaggeration}X</p>
+            </section>
+            
+            <section className="grid grid-cols-3 gap-4 text-sm">
+                <div className="p-2 border border-gray-400">
+                    <h3 className="font-bold mb-2">Results</h3>
+                    <p>Orthogonality = {finalResult?.value.toFixed(1)} {finalResult?.unit === "arcsec" ? "arcsec" : "µm"}</p>
+                </div>
+                <div className="p-2 border border-gray-400">
+                    <h3 className="font-bold mb-2">Comments</h3>
+                    <p>Axis 1 Serial Number: {reportData.axis1Serial}</p>
+                    <p>Axis 2 Serial Number: {reportData.axis2Serial}</p>
+                    <p>Order Number: {reportData.orderNumber}</p>
+                    <p>Customer Name: {reportData.customerName}</p>
+                    <p>Alignment Part Number: {reportData.alignmentPartNumber}</p>
+                </div>
+                 <div className="p-2 border border-gray-400">
+                    <h3 className="font-bold mb-2">Test Conditions</h3>
+                    <p>Technician: {reportData.technician}</p>
+                    <p>Date: {new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-')}</p>
+                    <p>Artifact Asset Number: {reportData.artifactAssetNumber}</p>
+                    <p>Indicator Asset Number: {reportData.indicatorAssetNumber}</p>
+                    <p>Measurement Distance: {travelDistance} mm</p>
+                    <p className="mt-4">{reportData.alignmentPartNumber}: Orthogonality &lt;= 3µm over measurement distance</p>
+                </div>
+            </section>
+
+             <footer className="mt-8 text-center">
+                <p className="font-bold text-red-600">Aerotech Inc.,</p>
+                <p className="font-bold text-red-600">Proprietary and Confidential</p>
+            </footer>
         </div>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-8 no-print">
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-3xl font-bold font-headline">Measurement Process</h2>
@@ -490,3 +597,4 @@ function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, tra
   )
 }
 
+    
