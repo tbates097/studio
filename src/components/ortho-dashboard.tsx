@@ -21,17 +21,18 @@ import {
   FileText,
   Zap,
   RotateCcw,
-  MoveRight,
   Check,
   ChevronLeft,
   ChevronRight,
+  Settings,
 } from "lucide-react";
 import { calculateOrthogonality } from "@/lib/calculations";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "./icons/logo";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
-type Step = "setup" | "squaring" | "measurement" | "results";
+type Step = "setup" | "squaring" | "adjustment" | "measurement" | "results";
 
 type Measurement = {
   position: number;
@@ -42,6 +43,8 @@ type OrthogonalityResult = {
   value: number;
   unit: "arcsec" | "μm";
 } | null;
+
+const SPEC_ARCSECONDS = 5;
 
 export function OrthoDashboard() {
   const [step, setStep] = useState<Step>("setup");
@@ -82,6 +85,8 @@ export function OrthoDashboard() {
         }
         setStep("squaring");
     } else if (step === "squaring") {
+        setStep("adjustment");
+    } else if (step === "adjustment") {
         setStep("measurement");
     } else if (step === "measurement") {
         const distance = parseFloat(travelDistance);
@@ -99,9 +104,12 @@ export function OrthoDashboard() {
       setSquaringMeasurements([]);
       setStep("setup");
     }
+    if (step === "adjustment") {
+      setStep("squaring");
+    }
     if (step === "measurement") {
         setMeasurements([]);
-        setStep("squaring");
+        setStep("adjustment");
     }
     if (step === "results") setStep("measurement");
   };
@@ -233,12 +241,41 @@ export function OrthoDashboard() {
             </Card>
         );
 
+      case "adjustment":
+        const orthogonality = calculateOrthogonality(0, currentReading, distance);
+        const inSpec = orthogonality !== null && orthogonality.unit === 'arcsec' && Math.abs(orthogonality.value) <= SPEC_ARCSECONDS;
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 3: Mechanical Adjustment</CardTitle>
+              <CardDescription>
+                Zero the indicator at one end, then move to the other. Use the live feedback to adjust the axis until it is within the {SPEC_ARCSECONDS} arcsecond specification.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <LiveReadingCard 
+                reading={currentReading} 
+                isRunning={isRunning} 
+                onToggle={isRunning ? stopSimulation : startSimulation}
+                onZero={() => setCurrentReading(0)}
+              />
+              <AdjustmentBar reading={currentReading} travelDistance={distance} spec={SPEC_ARCSECONDS} />
+            </CardContent>
+            <CardFooter className="justify-between">
+              <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
+              <Button onClick={handleNextStep} disabled={!inSpec && isRunning} className="bg-primary hover:bg-primary/90">
+                  {inSpec ? "Adjustment Complete" : "Within Spec to Proceed"} <ChevronRight />
+              </Button>
+            </CardFooter>
+          </Card>
+        );
+
       case "measurement":
         const progress = (measurements.length / numMeasurements) * 100;
         return (
             <Card>
                 <CardHeader>
-                    <CardTitle>Step 3: Orthogonality Measurement</CardTitle>
+                    <CardTitle>Step 4: Orthogonality Measurement</CardTitle>
                     <CardDescription>
                         Move to the perpendicular face. Record readings at the specified intervals.
                     </CardDescription>
@@ -278,7 +315,7 @@ export function OrthoDashboard() {
         return (
             <Card>
                 <CardHeader>
-                    <CardTitle>Step 4: Results</CardTitle>
+                    <CardTitle>Step 5: Results</CardTitle>
                     <CardDescription>The orthogonality measurement is complete.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -374,7 +411,7 @@ export function OrthoDashboard() {
   );
 }
 
-function LiveReadingCard({reading, isRunning, onToggle}: {reading: number, isRunning: boolean, onToggle: () => void}) {
+function LiveReadingCard({reading, isRunning, onToggle, onZero}: {reading: number, isRunning: boolean, onToggle: () => void, onZero?: () => void}) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -387,15 +424,71 @@ function LiveReadingCard({reading, isRunning, onToggle}: {reading: number, isRun
                   <span className="text-xl text-muted-foreground">μm</span>
                 </p>
             </CardContent>
-            <CardFooter>
+            <CardFooter className={cn("gap-2", onZero ? "grid-cols-2" : "grid-cols-1")}>
                 <Button onClick={onToggle} className="w-full" variant={isRunning ? "destructive" : "default"}>
-                    {isRunning ? <><Square className="mr-2" /> Stop Simulation</> : <><Play className="mr-2" /> Start Simulation</>}
+                    {isRunning ? <><Square className="mr-2" /> Stop</> : <><Play className="mr-2" /> Start</>}
                 </Button>
+                {onZero && (
+                  <Button onClick={onZero} className="w-full" variant="outline">
+                    Zero Indicator
+                  </Button>
+                )}
             </CardFooter>
         </Card>
     )
 }
 
-    
+function AdjustmentBar({ reading, travelDistance, spec }: { reading: number, travelDistance: number, spec: number }) {
+  const result = calculateOrthogonality(0, reading, travelDistance);
+  // Ensure we are comparing absolute values for the spec check
+  const arcsecValue = result?.unit === 'arcsec' ? Math.abs(result.value) : (result?.unit === 'μm' ? Math.abs(calculateOrthogonality(0, result.value, travelDistance)?.value ?? 999) : 999);
+  
+  const maxDisplayArcsec = spec * 3; 
+  // Calculate the raw deviation in microns that corresponds to the max display arcseconds
+  const maxDeviationMicrons = travelDistance * Math.tan(maxDisplayArcsec / 3600 * Math.PI / 180) * 1000;
+  
+  // Calculate the percentage based on the reading relative to the max deviation
+  const percentage = Math.max(-100, Math.min(100, (reading / maxDeviationMicrons) * 100));
 
-    
+  const inSpec = arcsecValue <= spec;
+
+  // Position the indicator based on the percentage. 50% is the center.
+  const indicatorPosition = `calc(${50 + percentage / 2}%)`;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Live Adjustment</CardTitle>
+        <CardDescription>Adjust until the indicator is in the green zone.</CardDescription>
+      </CardHeader>
+      <CardContent className="pt-4 space-y-4">
+        <div className="relative w-full h-8 bg-muted rounded-full overflow-hidden border">
+          {/* Red zones on both sides */}
+          <div className="absolute top-0 h-full bg-red-500/50 w-full"></div>
+          {/* Green (in-spec) zone in the middle */}
+          <div 
+            className="absolute top-0 h-full bg-green-500/50"
+            style={{ 
+                left: `calc(50% - ${ (spec / maxDisplayArcsec) * 50}%)`,
+                width: `${ (spec / maxDisplayArcsec) * 100}%`
+            }}
+          ></div>
+          {/* Live indicator needle */}
+          <div 
+            className={cn(
+              "absolute top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-full transition-all duration-200 ease-linear border-2",
+              inSpec ? "bg-green-400 border-green-700" : "bg-red-400 border-red-700"
+            )}
+            style={{ left: indicatorPosition }}
+          />
+        </div>
+        <div className="text-center">
+            <p className="font-bold text-lg">{result ? `${result.value.toFixed(2)} ${result.unit}` : 'Calculating...'}</p>
+            <p className={cn("font-semibold", inSpec ? "text-green-500" : "text-red-500")}>
+                {inSpec ? "✔ In Spec" : "✖ Out of Spec"}
+            </p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
