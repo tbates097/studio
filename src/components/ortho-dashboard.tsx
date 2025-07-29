@@ -327,7 +327,7 @@ export function OrthoDashboard() {
               <Button onClick={handleNextStep} disabled={!inSpec} className="bg-primary hover:bg-primary/90">
                   {inSpec ? "Adjustment Complete" : "Within Spec to Proceed"} <ChevronRight />
               </Button>
-            </Footer>
+            </CardFooter>
           </Card>
         );
 
