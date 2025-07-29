@@ -49,6 +49,8 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useIndicator } from "@/hooks/use-indicator";
 import { Slider } from "@/components/ui/slider";
+import { Badge } from "./ui/badge";
+import { Separator } from "./ui/separator";
 
 
 type Step = "setup" | "squaring" | "referenceMeasurement" | "adjustment" | "finalMeasurement" | "results";
@@ -72,6 +74,7 @@ type ReportData = {
   alignmentPartNumber: string;
   artifactAssetNumber: string;
   indicatorAssetNumber: string;
+  comments: string;
 };
 
 const SPEC_ARCSECONDS = 5;
@@ -103,6 +106,7 @@ export function OrthoDashboard() {
     alignmentPartNumber: "PA5",
     artifactAssetNumber: "0346",
     indicatorAssetNumber: "05614",
+    comments: "No issues to report. System meets all specifications.",
   });
 
   const { toast } = useToast();
@@ -122,7 +126,7 @@ export function OrthoDashboard() {
     }
   };
 
-  const handleReportDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleReportDataChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setReportData(prev => ({ ...prev, [id]: value }));
   };
@@ -154,6 +158,7 @@ export function OrthoDashboard() {
     } else if (step === "adjustment") {
         sendCommand("FNC 1\r");
         setAdjustmentZero(null); // Reset zero for measurement step
+        setMeasurements([]);
         setStep("finalMeasurement");
     } else if (step === "finalMeasurement") {
         const distance = parseFloat(travelDistance);
@@ -164,15 +169,13 @@ export function OrthoDashboard() {
 
         if (rawResult) {
             const squaringError = squaringResult?.value ?? 0;
-            // Ensure both are in the same units for subtraction if needed.
-            // Assuming both are calculated to arcsec for compensation.
             if (rawResult.unit === 'arcsec' && squaringResult?.unit === 'arcsec') {
                  setFinalResult({
                     value: rawResult.value - squaringError,
                     unit: 'arcsec'
                 });
             } else {
-                setFinalResult(rawResult); // Fallback if units mismatch
+                setFinalResult(rawResult); 
             }
         } else {
             setFinalResult(null);
@@ -271,7 +274,7 @@ export function OrthoDashboard() {
                 )}
               </Button>
 
-              <Accordion type="multiple" defaultValue={["item-1", "item-2", "item-3", "item-4"]} className="w-full">
+              <Accordion type="multiple" defaultValue={["item-1"]} className="w-full">
                 <AccordionItem value="item-1">
                   <AccordionTrigger>Test Parameters</AccordionTrigger>
                   <AccordionContent>
@@ -610,7 +613,7 @@ export function OrthoDashboard() {
                 <CardContent className="space-y-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle as="h3" className="text-lg font-medium">Calculated Result</CardTitle>
+                            <CardTitle as="h3" className="text-lg font-medium">Compensated Result</CardTitle>
                             <Calculator className="w-6 h-6 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="flex flex-col items-center justify-center h-32">
@@ -641,6 +644,7 @@ export function OrthoDashboard() {
          <PrintableReport
             reportData={reportData}
             finalResult={finalResult}
+            spec={SPEC_ARCSECONDS}
             travelDistance={travelDistance}
             finalMeasurement={measurements[measurements.length - 1]}
             referenceMeasurement={measurements[0]}
@@ -716,8 +720,6 @@ function AdjustmentBar({
 
   const { value, unit } = result;
   
-  // Convert the live reading to a consistent value for the bar display.
-  // If it's arcseconds, use it directly. If it's microns, convert it to an equivalent arcsecond value for visual scaling.
   const valueInArcsec = unit === 'arcsec' 
     ? value
     : (Math.atan((value / 1000) / travelDistance) * (180 / Math.PI) * 3600);
@@ -783,7 +785,7 @@ function OrthogonalityVisualization({ result }: { result: OrthogonalityResult })
         )
     }
 
-    const exaggeration = 200; // Make the angle more visible
+    const exaggeration = 500;
     const rotation = angleDegrees * exaggeration;
 
     return (
@@ -792,25 +794,18 @@ function OrthogonalityVisualization({ result }: { result: OrthogonalityResult })
                 <CardTitle as="h3" className="text-lg font-medium">Result Visualization</CardTitle>
                 <CardDescription>Visual representation of the orthogonality error. Deviation is exaggerated for clarity.</CardDescription>
             </CardHeader>
-            <CardContent className="h-48">
-                <div className="w-full h-full flex items-center justify-center">
-                    <svg width="150" height="150" viewBox="-75 -75 150 150">
-                        {/* Reference Axis */}
-                        <line x1="-60" y1="0" x2="60" y2="0" stroke="hsl(var(--primary))" strokeWidth="2" />
-                        <text x="65" y="3" fill="hsl(var(--primary-foreground))" fontSize="10">Ref</text>
-                        
-                        {/* Ideal 90-degree line (dashed) */}
-                        <line x1="0" y1="-60" x2="0" y2="60" stroke="hsl(var(--muted-foreground))" strokeWidth="1" strokeDasharray="3 3" />
-                        
-                        {/* Measured Axis */}
-                        <g transform={`rotate(${-rotation})`}>
-                            <line x1="0" y1="-60" x2="0" y2="60" stroke="hsl(var(--accent))" strokeWidth="2" />
-                             <text x="3" y="-55" fill="hsl(var(--accent-foreground))" fontSize="10">Meas</text>
-                        </g>
-
-                        {/* 90-degree guide arc */}
-                         <path d="M 10 0 A 10 10 0 0 1 0 -10" fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth="1" />
-                    </svg>
+            <CardContent className="flex items-center justify-center h-48">
+                <div className="relative w-40 h-40">
+                    {/* Ideal (dashed) */}
+                    <div className="absolute w-full h-px -translate-y-1/2 bg-gray-500 top-1/2" style={{background: 'repeating-linear-gradient(90deg,hsl(var(--muted-foreground)),hsl(var(--muted-foreground)) 6px,transparent 6px,transparent 12px)'}} />
+                    <div className="absolute h-full w-px -translate-x-1/2 bg-gray-500 left-1/2" style={{background: 'repeating-linear-gradient(0deg,hsl(var(--muted-foreground)),hsl(var(--muted-foreground)) 6px,transparent 6px,transparent 12px)'}} />
+                    
+                    {/* Actual (solid) */}
+                    <div className="absolute w-full h-0.5 -translate-y-1/2 bg-primary top-1/2" />
+                    <div 
+                        className="absolute h-full w-0.5 -translate-x-1/2 bg-accent left-1/2 origin-center" 
+                        style={{transform: `rotate(${rotation}deg)`}}
+                    />
                 </div>
             </CardContent>
         </Card>
@@ -844,17 +839,17 @@ function ResultChart({
             </CardHeader>
             <CardContent className="h-64 print-p-0">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={plotData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <LineChart data={plotData} margin={{ top: 5, right: 30, left: 30, bottom: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" label={{ value: 'Direction 1', position: 'insideBottom', offset: -5 }} />
-                        <YAxis label={{ value: `Direction 2`, angle: -90, position: 'insideLeft' }} />
+                        <XAxis dataKey="name" label={{ value: 'Direction 1', position: 'insideBottom', offset: -10 }} />
+                        <YAxis label={{ value: `Direction 2 (μm)`, angle: -90, position: 'insideLeft', offset: -20 }} />
                         <Tooltip 
                             formatter={(value: number, name) => [`${(value / errorExaggeration).toFixed(3)} μm`, name]}
                             labelFormatter={() => ''}
                         />
-                        <Legend />
-                        <Line type="monotone" dataKey="reference" stroke="#ff0000" strokeWidth={2} dot={{r:4, fill: '#ff0000'}} activeDot={{r:6}} name="Ideal Reference" />
-                        <Line type="monotone" dataKey="measurement" stroke="#0000ff" strokeWidth={2} dot={{r:4, fill: '#0000ff'}} activeDot={{r:6}} name="Measured Path" />
+                        <Legend verticalAlign="top" height={36}/>
+                        <Line type="monotone" dataKey="reference" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={{r:4, fill: 'hsl(var(--muted-foreground))'}} activeDot={{r:6}} name="Ideal Reference" />
+                        <Line type="monotone" dataKey="measurement" stroke="hsl(var(--primary))" strokeWidth={2} dot={{r:4, fill: 'hsl(var(--primary))'}} activeDot={{r:6}} name="Measured Path" />
                     </LineChart>
                 </ResponsiveContainer>
             </CardContent>
@@ -865,38 +860,71 @@ function ResultChart({
 function PrintableReport({
   reportData,
   finalResult,
+  spec,
   travelDistance,
   referenceMeasurement,
   finalMeasurement,
 }: {
   reportData: ReportData;
   finalResult: OrthogonalityResult;
+  spec: number;
   travelDistance: string;
   referenceMeasurement?: Measurement;
   finalMeasurement?: Measurement;
 }) {
 
+  const resultValue = finalResult?.value ?? 0;
+  const inSpec = finalResult?.unit === 'arcsec' && Math.abs(resultValue) <= spec;
+
   return (
-    <div className="p-8 font-sans bg-white text-black printable-area">
-      <header className="flex flex-col items-center mb-8 text-center">
-        <Logo className="w-auto h-12 text-[#00ADEF] mb-4" />
-        <h2 className="text-xl font-bold">Axis Alignment Report</h2>
+    <div className="p-8 font-sans bg-white text-black printable-area flex flex-col min-h-[95vh]">
+      <header className="flex items-center justify-between pb-4 mb-4 border-b border-gray-300">
+        <Logo className="w-auto h-12 text-[#00ADEF]" />
+        <h2 className="text-2xl font-bold text-gray-700">Axis Alignment Report</h2>
       </header>
       
-      <section className="mb-4">
+      <main className="flex-1">
         <ResultChart
             travelDistance={parseFloat(travelDistance)}
             finalMeasurement={finalMeasurement}
             referenceMeasurement={referenceMeasurement}
         />
-      </section>
+      </main>
       
+      <section className="mt-4 grid grid-cols-3 gap-4 text-xs">
+        <div className="p-2 border border-gray-300 rounded">
+          <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Final Result</h3>
+          <div className="flex items-center justify-between">
+            <span>Orthogonality:</span>
+            <span className="font-bold">{finalResult ? `${resultValue.toFixed(3)} ${finalResult.unit}` : 'N/A'}</span>
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <span>Status:</span>
+            <Badge className={cn("text-white", inSpec ? "bg-green-600" : "bg-red-600")}>
+                {inSpec ? 'PASS' : 'FAIL'}
+            </Badge>
+          </div>
+        </div>
+        <div className="p-2 border border-gray-300 rounded">
+            <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Test Conditions & Equipment</h3>
+            <div className="grid grid-cols-2 gap-x-2">
+                <span>Technician:</span><span className="font-medium">{reportData.technician}</span>
+                <span>Date:</span><span className="font-medium">{new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-")}</span>
+                <span>Order #:</span><span className="font-medium">{reportData.orderNumber}</span>
+                <span>Customer:</span><span className="font-medium">{reportData.customerName}</span>
+                <span>Artifact #:</span><span className="font-medium">{reportData.artifactAssetNumber}</span>
+                <span>Indicator #:</span><span className="font-medium">{reportData.indicatorAssetNumber}</span>
+            </div>
+        </div>
+        <div className="p-2 border border-gray-300 rounded">
+            <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Comments</h3>
+            <p className="text-gray-600">{reportData.comments}</p>
+        </div>
+      </section>
+
       <footer className="mt-8 text-center text-xs">
-        <p><strong>Technician:</strong> {reportData.technician} | <strong>Date:</strong> {new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-")} | <strong>Order #:</strong> {reportData.orderNumber}</p>
-        <p className="font-bold text-red-600 mt-4">Aerotech Inc., Proprietary and Confidential</p>
+        <p className="font-bold text-red-600">Aerotech Inc., Proprietary and Confidential</p>
       </footer>
     </div>
   );
 }
-
-    
