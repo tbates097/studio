@@ -401,7 +401,8 @@ export function OrthoDashboard() {
                         <AdjustmentBar 
                             result={liveOrthogonality} 
                             travelDistance={distance} 
-                            spec={SPEC_ARCSECONDS} 
+                            spec={SPEC_ARCSECONDS}
+                            showSpecMessage={false}
                         />
                     ) : (
                         <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
@@ -545,7 +546,7 @@ export function OrthoDashboard() {
                         </CardHeader>
                         <CardContent className="flex flex-col items-center justify-center h-32">
                             <div className="text-6xl font-bold text-accent font-headline" aria-live="polite">
-                                {finalResult ? Math.abs(finalResult.value).toFixed(3) : "---"}
+                                {finalResult ? finalResult.value.toFixed(3) : "---"}
                             </div>
                             <p className="text-lg text-muted-foreground">
                                 {finalResult ? finalResult.unit : "N/A"}
@@ -625,7 +626,7 @@ export function OrthoDashboard() {
             <section className="grid grid-cols-3 gap-4 text-sm">
                 <div className="p-2 border border-gray-400">
                     <h3 className="font-bold mb-2">Results</h3>
-                    <p>Orthogonality = {finalResult ? Math.abs(finalResult.value).toFixed(1) : '0.0'} {finalResult?.unit === "arcsec" ? "arcsec" : "µm"}</p>
+                    <p>Orthogonality = {finalResult ? finalResult.value.toFixed(1) : '0.0'} {finalResult?.unit === "arcsec" ? "arcsec" : "µm"}</p>
                 </div>
                 <div className="p-2 border border-gray-400">
                     <h3 className="font-bold mb-2">Comments</h3>
@@ -707,7 +708,17 @@ function LiveReadingCard({
     )
 }
 
-function AdjustmentBar({ result, travelDistance, spec }: { result: OrthogonalityResult, travelDistance: number, spec: number }) {
+function AdjustmentBar({ 
+  result, 
+  travelDistance, 
+  spec, 
+  showSpecMessage = true 
+}: { 
+  result: OrthogonalityResult, 
+  travelDistance: number, 
+  spec: number,
+  showSpecMessage?: boolean
+}) {
   if (!result) return null;
 
   const { value, unit } = result;
@@ -754,9 +765,11 @@ function AdjustmentBar({ result, travelDistance, spec }: { result: Orthogonality
         </div>
         <div className="text-center">
             <p className="font-bold text-lg">{value.toFixed(2)} {unit}</p>
-            <p className={cn("font-semibold", inSpec ? "text-green-500" : "text-red-500")}>
-                {inSpec ? "✔ In Spec" : (unit === 'arcsec' ? "✖ Out of Spec" : "Adjust for Arcsecond Reading")}
-            </p>
+            {showSpecMessage && (
+              <p className={cn("font-semibold", inSpec ? "text-green-500" : "text-red-500")}>
+                  {inSpec ? "✔ In Spec" : (unit === 'arcsec' ? "✖ Out of Spec" : "Adjust for Arcsecond Reading")}
+              </p>
+            )}
         </div>
       </CardContent>
     </Card>
