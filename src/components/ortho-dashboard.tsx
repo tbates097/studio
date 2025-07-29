@@ -521,19 +521,19 @@ export function OrthoDashboard() {
                 
                 {isSimulation && adjustmentZero !== null && (
                     <Card>
-                    <CardHeader>
-                        <CardTitle as="h3" className="text-base">Adjustment Simulator</CardTitle>
-                        <CardDescription className="text-xs">Use this slider to simulate turning the adjustment screw.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Slider
-                            value={[adjustmentLiveReading]}
-                            onValueChange={([val]) => setSimulationReading && setSimulationReading(val + adjustmentZero)}
-                            min={-300}
-                            max={300}
-                            step={1}
-                        />
-                    </CardContent>
+                        <CardHeader>
+                            <CardTitle as="h3" className="text-base">Adjustment Simulator</CardTitle>
+                            <CardDescription className="text-xs">Use this slider to simulate turning the adjustment screw.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Slider
+                                value={[adjustmentLiveReading]}
+                                onValueChange={([val]) => setSimulationReading && setSimulationReading(val + adjustmentZero)}
+                                min={-300}
+                                max={300}
+                                step={1}
+                            />
+                        </CardContent>
                     </Card>
                 )}
 
@@ -880,6 +880,7 @@ function PrintableReport({
     <div className="p-8 font-sans bg-white text-black printable-area">
       <header className="flex flex-col items-center mb-8 text-center">
         <Logo className="w-auto h-12 text-[#00ADEF] mb-4" />
+        <h2 className="text-xl font-bold">Axis Alignment Report</h2>
       </header>
       
       <section className="mb-4">
@@ -889,39 +890,10 @@ function PrintableReport({
             referenceMeasurement={referenceMeasurement}
         />
       </section>
-
-      <section className="grid grid-cols-3 gap-4 text-sm mb-8">
-        <div className="p-2 border border-gray-400 rounded">
-          <h3 className="font-bold mb-2 text-center">Results</h3>
-          <p className="text-sm">
-            Orthogonality: {finalResult ? Math.abs(finalResult.value).toFixed(2) : "N/A"}{" "}
-            {finalResult?.unit}
-          </p>
-        </div>
-         <div className="p-2 border border-gray-400 rounded">
-          <h3 className="font-bold mb-2 text-center">Comments</h3>
-            <p><strong>Axis 1 S/N:</strong> {reportData.axis1Serial}</p>
-            <p><strong>Axis 2 S/N:</strong> {reportData.axis2Serial}</p>
-            <p><strong>Order #:</strong> {reportData.orderNumber}</p>
-            <p><strong>Customer:</strong> {reportData.customerName}</p>
-            <p><strong>Part Number:</strong> {reportData.alignmentPartNumber}</p>
-        </div>
-        <div className="p-2 border border-gray-400 rounded">
-          <h3 className="font-bold mb-2 text-center">Test Conditions</h3>
-          <div className="grid grid-cols-1">
-              <p><strong>Technician:</strong> {reportData.technician}</p>
-              <p><strong>Date:</strong> {new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-")}</p>
-              <p><strong>Artifact Asset:</strong> {reportData.artifactAssetNumber}</p>
-              <p><strong>Indicator Asset:</strong> {reportData.indicatorAssetNumber}</p>
-              <p><strong>Travel:</strong> {travelDistance} mm</p>
-              <p className="mt-2">{reportData.alignmentPartNumber}: Orthogonality &lt;= {SPEC_ARCSECONDS} arcsec over measurement distance</p>
-          </div>
-        </div>
-      </section>
       
       <footer className="mt-8 text-center text-xs">
-        <p className="font-bold text-red-600">Aerotech Inc.,</p>
-        <p className="font-bold text-red-600">Proprietary and Confidential</p>
+        <p><strong>Technician:</strong> {reportData.technician} | <strong>Date:</strong> {new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-")} | <strong>Order #:</strong> {reportData.orderNumber}</p>
+        <p className="font-bold text-red-600 mt-4">Aerotech Inc., Proprietary and Confidential</p>
       </footer>
     </div>
   );
