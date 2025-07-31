@@ -12,7 +12,6 @@ type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 const IS_SIMULATION_ENABLED = false;
 // -------------------------
 
-
 /**
  * A hook to manage connection to a serial port for reading indicator data.
  * Can operate in real mode (Web Serial API) or simulation mode.
@@ -28,7 +27,7 @@ export function useIndicator() {
   const keepReadingRef = useRef(false);
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const simulationBaseReadingRef = useRef(0);
-  const commandIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const setSimulationReading = useCallback((newReading: number) => {
     if (IS_SIMULATION_ENABLED) {
@@ -68,75 +67,87 @@ export function useIndicator() {
     }
   }, [connectionStatus, toast]);
 
+  // Add polling for real-time data using the correct indicator command
+  const startPolling = useCallback(() => {
+    if (IS_SIMULATION_ENABLED) return;
+    
+    // Clear any existing polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Poll for data every 100ms for real-time updates
+    // Using "? FNC 0" to request the displayed value (function 0 = normal reading)
+    pollingIntervalRef.current = setInterval(async () => {
+      if (connectionStatus === 'connected' && writerRef.current) {
+        try {
+          await sendCommand("? FNC 0\r");
+        } catch (error) {
+          console.error("Polling error:", error);
+        }
+      }
+    }, 100); // 10Hz polling rate for smooth real-time updates
+  }, [connectionStatus, sendCommand]);
+
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  }, []);
+
   const readLoop = useCallback(async () => {
     if (!portRef.current) return;
     
-    while (portRef.current.readable && keepReadingRef.current) {
-        readerRef.current = portRef.current.readable.getReader();
-        const textDecoder = new TextDecoder();
-        let buffer = '';
-        
-        try {
-                    while (keepReadingRef.current) {
-                      if (!readerRef.current) {
-                            // Handle the case where readerRef.current is null, perhaps by breaking the loop or logging an error
-                            console.error("readerRef.current is null in readLoop");
-                            break; // Or return; depending on desired error handling
-                        }
-                        const { value, done } = await readerRef.current.read();
-                        console.log('Received data chunk:', value, 'Done:', done);
+    try {
+      readerRef.current = portRef.current.readable?.getReader();
+      if (!readerRef.current) return;
 
-                        if (done) break;
+      const textDecoder = new TextDecoder();
+      let buffer = '';
+      
+      while (keepReadingRef.current) {
+        const { value, done } = await readerRef.current.read();
+        if (done) break;
 
-                        buffer += textDecoder.decode(value, { stream: true });
-                        console.log('Buffer after decoding:', buffer);
-                        const lines = buffer.split('\r\n'); // Corrected line ending
-                        console.log('Processed lines:', lines);
+        buffer += textDecoder.decode(value, { stream: true });
+        const lines = buffer.split('\r\n');
+        buffer = lines.pop() || '';
 
-                        buffer = lines.pop() || '';
-
-                        // Process complete lines
-                        for (const line of lines) {
-                          if (line) { // Ensure the line is not empty
-                            const readingValue = parseFloat(line);
-                            if (!isNaN(readingValue)) {
-                              setReading(readingValue); // Update the reading state
-                              console.log('Updated reading:', readingValue);
-                            } else {
-                              console.warn('Could not parse reading from line:', line);
-                            }
-                          }
-                        }
-                    }
-                } catch (error) {
-                    if (keepReadingRef.current) {
-                        console.error("Read loop error:", error);
-                        setConnectionStatus('error');
-                        toast({ title: "Read Error", description: "An error occurred reading from the indicator.", variant: "destructive" });
-                    }
-                } finally {
-                    if(readerRef.current){
-                      readerRef.current.releaseLock();
-                    }
-                }
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (trimmedLine) {
+            console.log("Processed lines:", lines);
+            const parsedValue = parseFloat(trimmedLine);
+            if (!isNaN(parsedValue)) {
+              console.log("Updated reading:", parsedValue);
+              setReading(parsedValue);
             }
-          }, [toast, setReading]); // Add setReading to the dependency array
-
+          }
+        }
+      }
+    } catch (error) {
+      if (keepReadingRef.current) {
+        console.error("Read loop error:", error);
+        setConnectionStatus('error');
+        toast({ title: "Read Error", description: "An error occurred reading from the indicator.", variant: "destructive" });
+      }
+    } finally {
+      if (readerRef.current) {
+        readerRef.current.releaseLock();
+      }
+    }
+  }, [toast]);
 
   const disconnect = useCallback(async () => {
     console.log("Disconnect called");
+    stopPolling(); // Stop polling first
+    
     if (IS_SIMULATION_ENABLED) {
       if (simulationIntervalRef.current) {
         clearInterval(simulationIntervalRef.current);
         simulationIntervalRef.current = null;
       }
-
-      if (commandIntervalRef.current) { // <-- Insert from here
-          clearInterval(commandIntervalRef.current);
-          commandIntervalRef.current = null;
-          console.log("Cleared command sending interval"); // Optional log
-      } // <-- to here
-
       setConnectionStatus('disconnected');
       setReading(0);
       toast({
@@ -191,7 +202,7 @@ export function useIndicator() {
         }
     }, 100);
 
-  }, [toast]);
+  }, [toast, stopPolling]);
 
   const connect = useCallback(async () => {
     if (IS_SIMULATION_ENABLED) {
@@ -228,28 +239,10 @@ export function useIndicator() {
       const port = await navigator.serial.requestPort();
       portRef.current = port;
       
-      await port.open({ baudRate: 4800, dataBits: 7, stopBits: 2, parity: 'even', flowControl: 'none' });
-
+      await port.open({ baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'even', flowControl: 'none' });
+      
       writerRef.current = port.writable?.getWriter() ?? null;
 
-      // Send the command to request a reading
-      if (writerRef.current) {
-        const textEncoder = new TextEncoder();
-        await writerRef.current.write(textEncoder.encode('?\r'));
-        console.log("Sent '?' command to indicator"); // Add logging to confirm command sent
-      }
-      commandIntervalRef.current = setInterval(async () => { // <-- Insert from here
-          if (writerRef.current) {
-              try {
-                  const textEncoder = new TextEncoder();
-                  await writerRef.current.write(textEncoder.encode('?\r'));
-                  // Optional: Add a log here to see when commands are sent by the interval
-                  // console.log("Sent '?' command via interval");
-              } catch (error) {
-                  console.error("Error sending command via interval:", error);
-              }
-          }
-      }, 150);
       setConnectionStatus('connected');
       toast({
         title: "Indicator Connected",
@@ -258,7 +251,7 @@ export function useIndicator() {
 
       keepReadingRef.current = true;
       readLoop();
-
+      startPolling(); // Start polling for real-time data
 
     } catch (error) {
       setConnectionStatus('error');
@@ -282,11 +275,12 @@ export function useIndicator() {
         console.error(error);
       }
     }
-  }, [toast, readLoop]);
+  }, [toast, readLoop, startPolling]);
 
   // Effect to handle cleanup on component unmount or page close
   useEffect(() => {
     const cleanup = () => {
+      stopPolling();
       if (connectionStatus === 'connected' && portRef.current) {
         disconnect();
       }
@@ -298,7 +292,7 @@ export function useIndicator() {
       window.removeEventListener('beforeunload', cleanup);
       cleanup(); // Cleanup on component unmount
     };
-  }, [connectionStatus, disconnect]);
+  }, [connectionStatus, disconnect, stopPolling]);
 
   return { reading, connect, disconnect, sendCommand, connectionStatus, isSimulation: IS_SIMULATION_ENABLED, setSimulationReading };
 }
