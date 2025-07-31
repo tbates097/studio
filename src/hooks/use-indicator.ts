@@ -69,56 +69,54 @@ export function useIndicator() {
 
   const disconnect = useCallback(async () => {
     if (IS_SIMULATION_ENABLED) {
-        if (simulationIntervalRef.current) {
-            clearInterval(simulationIntervalRef.current);
-            simulationIntervalRef.current = null;
-        }
-        setConnectionStatus('disconnected');
-        setReading(0);
-        toast({
-            title: "Simulator Disconnected",
-            description: "The connection to the indicator simulator has been closed.",
-        });
-        return;
+      if (simulationIntervalRef.current) {
+        clearInterval(simulationIntervalRef.current);
+        simulationIntervalRef.current = null;
+      }
+      setConnectionStatus('disconnected');
+      setReading(0);
+      toast({
+        title: "Simulator Disconnected",
+        description: "The connection to the indicator simulator has been closed.",
+      });
+      return;
     }
-    
-    // Signal the read loop to stop
+
+    // 1. Signal the read loop to stop
     keepReadingRef.current = false;
 
-    // Gracefully release the writer
-    if (writerRef.current) {
-      try {
-        if(!writerRef.current.closed) {
-          await writerRef.current.close();
-        }
-      } catch(error) { 
-          console.warn("Failed to close writer:", error);
-      } finally {
-        writerRef.current = null;
-      }
-    }
-
-    // Cancel the reader, which should also release its lock
+    // 2. Cancel the reader. This will cause the read() promise to reject and exit the loop.
     if (readerRef.current) {
       try {
         await readerRef.current.cancel();
-      } catch (error) { 
-        console.warn("Failed to cancel reader:", error);
-      } finally {
-        readerRef.current = null;
+      } catch (error) {
+        // Ignore cancel errors, as they are expected
       }
+    }
+    
+    // 3. Close the writer
+    if (writerRef.current) {
+      try {
+        if (!writerRef.current.closed) {
+          await writerRef.current.close();
+        }
+      } catch (error) {
+        console.warn("Failed to close writer:", error);
+      }
+    }
+    
+    // 4. Close the port
+    if (portRef.current) {
+        try {
+            await portRef.current.close();
+        } catch (error) {
+            console.error("Failed to close port:", error);
+        }
     }
 
-    // Finally, close the port
-    if (portRef.current) {
-      try {
-        await portRef.current.close();
-      } catch (error) {
-         console.warn("Error closing port:", error);
-      } finally {
-        portRef.current = null;
-      }
-    }
+    portRef.current = null;
+    writerRef.current = null;
+    readerRef.current = null;
     
     if (connectionStatus !== 'disconnected') {
       setConnectionStatus('disconnected');
@@ -128,23 +126,24 @@ export function useIndicator() {
           description: "The connection to the indicator has been closed.",
       });
     }
-
   }, [toast, connectionStatus]);
 
-  const readLoop = useCallback(async () => {
-    if (!portRef.current?.readable) return;
-    
+  const readLoop = useCallback(async (port: SerialPort) => {
+    if (!port.readable) {
+        console.error("Port is not readable.");
+        return;
+    }
     keepReadingRef.current = true;
+    readerRef.current = port.readable.getReader();
+
     const textDecoder = new TextDecoder();
     let buffer = '';
 
-    while (portRef.current?.readable && keepReadingRef.current) {
-      readerRef.current = portRef.current.readable.getReader();
-      try {
+    try {
         while (keepReadingRef.current) {
             const { value, done } = await readerRef.current.read();
-            if (done) {
-                break;
+            if (done || !keepReadingRef.current) {
+                break; 
             }
 
             buffer += textDecoder.decode(value, { stream: true });
@@ -161,19 +160,19 @@ export function useIndicator() {
                 }
             }
         }
-      } catch (error) {
-         if (keepReadingRef.current) {
+    } catch (error) {
+        if (keepReadingRef.current) { // Only log if not an intentional disconnect
             console.error("Read loop error:", error);
             setConnectionStatus('error');
-         }
-      } finally {
+            toast({ title: "Read Error", description: "An error occurred while reading from the indicator.", variant: "destructive" });
+        }
+    } finally {
         if(readerRef.current) {
             readerRef.current.releaseLock();
             readerRef.current = null;
         }
-      }
     }
-  }, []);
+  }, [toast]);
 
 
   const connect = useCallback(async () => {
@@ -221,7 +220,8 @@ export function useIndicator() {
         description: "Successfully connected to the measurement indicator.",
       });
 
-      readLoop();
+      // Start the single, persistent read loop
+      readLoop(port);
 
     } catch (error) {
       setConnectionStatus('error');
@@ -235,30 +235,32 @@ export function useIndicator() {
           description: "Port is already open. Please disconnect first.",
           variant: "destructive",
         });
+        setConnectionStatus('disconnected');
       } else {
         toast({
           title: "Connection Failed",
           description: "Could not connect. Is it in use by another program?",
           variant: "destructive",
         });
+        setConnectionStatus('disconnected');
         console.error(error);
       }
     }
   }, [toast, readLoop]);
 
+  // Effect to handle cleanup on component unmount or page close
   useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-        if (connectionStatus === 'connected') {
-            disconnect();
-        }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      if (connectionStatus === 'connected') {
+    const cleanup = () => {
+      if (connectionStatus === 'connected' && portRef.current) {
         disconnect();
       }
+    };
+    
+    window.addEventListener('beforeunload', cleanup);
+    
+    return () => {
+      window.removeEventListener('beforeunload', cleanup);
+      cleanup(); // Cleanup on component unmount
     };
   }, [connectionStatus, disconnect]);
 
