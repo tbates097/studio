@@ -96,6 +96,7 @@ export function useIndicator() {
     pollingIntervalRef.current = setInterval(async () => {
       if (connectionStatus === 'connected' && writerRef.current) {
         try {
+          console.log("Sending polling command: ? FNC 0");
           await sendCommand("? FNC 0\r");
         } catch (error) {
           console.error("Polling error:", error);
@@ -121,22 +122,32 @@ export function useIndicator() {
       const textDecoder = new TextDecoder();
       let buffer = '';
       
+      console.log("Starting read loop...");
+      
       while (keepReadingRef.current) {
         const { value, done } = await readerRef.current.read();
         if (done) break;
 
-        buffer += textDecoder.decode(value, { stream: true });
+        const decoded = textDecoder.decode(value, { stream: true });
+        console.log("Raw received data:", JSON.stringify(decoded));
+        
+        buffer += decoded;
         const lines = buffer.split('\r\n');
         buffer = lines.pop() || '';
+
+        console.log("Processed lines:", lines);
+        console.log("Remaining buffer:", JSON.stringify(buffer));
 
         for (const line of lines) {
           const trimmedLine = line.trim();
           if (trimmedLine) {
-            console.log("Processed lines:", lines);
+            console.log("Processing line:", JSON.stringify(trimmedLine));
             const parsedValue = parseFloat(trimmedLine);
             if (!isNaN(parsedValue)) {
               console.log("Updated reading:", parsedValue);
               setReading(parsedValue);
+            } else {
+              console.log("Could not parse as number:", trimmedLine);
             }
           }
         }
