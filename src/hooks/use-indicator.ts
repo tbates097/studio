@@ -81,7 +81,8 @@ export function useIndicator() {
                 if (done) break;
 
                 buffer += textDecoder.decode(value, { stream: true });
-                const lines = buffer.split('\r\n');
+                const lines = buffer.split('
+');
                 buffer = lines.pop() || '';
 
                 for (const line of lines) {
@@ -206,7 +207,7 @@ export function useIndicator() {
       const port = await navigator.serial.requestPort();
       portRef.current = port;
       
-      await port.open({ baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'even', flowControl: 'none' });
+      await port.open({ baudRate: 4800, dataBits: 7, stopBits: 2, parity: 'even', flowControl: 'none' });
       
       writerRef.current = port.writable?.getWriter() ?? null;
 
