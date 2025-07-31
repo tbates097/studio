@@ -77,47 +77,51 @@ export function useIndicator() {
         let buffer = '';
         
         try {
-            while (keepReadingRef.current) {
-              if (!readerRef.current) {
-                    // Handle the case where readerRef.current is null, perhaps by breaking the loop or logging an error
-                    console.error("readerRef.current is null in readLoop");
-                    break; // Or return; depending on desired error handling
-                }
-                const { value, done } = await readerRef.current.read();
-                console.log('Received data chunk:', value, 'Done:', done);
-
-                if (done) break;
-
-                buffer += textDecoder.decode(value, { stream: true });
-                console.log('Buffer after decoding:', buffer);
-                const lines = buffer.split('\r\n'); // Corrected line ending
-                console.log('Processed lines:', lines);
-
-                buffer = lines.pop() || '';
-
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine) {
-                        const parsedValue = parseFloat(trimmedLine);
-                        if (!isNaN(parsedValue)) {
-                            setReading(parsedValue);
+                    while (keepReadingRef.current) {
+                      if (!readerRef.current) {
+                            // Handle the case where readerRef.current is null, perhaps by breaking the loop or logging an error
+                            console.error("readerRef.current is null in readLoop");
+                            break; // Or return; depending on desired error handling
                         }
+                        const { value, done } = await readerRef.current.read();
+                        console.log('Received data chunk:', value, 'Done:', done);
+
+                        if (done) break;
+
+                        buffer += textDecoder.decode(value, { stream: true });
+                        console.log('Buffer after decoding:', buffer);
+                        const lines = buffer.split('\r\n'); // Corrected line ending
+                        console.log('Processed lines:', lines);
+
+                        buffer = lines.pop() || '';
+
+                        // Process complete lines
+                        for (const line of lines) {
+                          if (line) { // Ensure the line is not empty
+                            const readingValue = parseFloat(line);
+                            if (!isNaN(readingValue)) {
+                              setReading(readingValue); // Update the reading state
+                              console.log('Updated reading:', readingValue);
+                            } else {
+                              console.warn('Could not parse reading from line:', line);
+                            }
+                          }
+                        }
+                    }
+                } catch (error) {
+                    if (keepReadingRef.current) {
+                        console.error("Read loop error:", error);
+                        setConnectionStatus('error');
+                        toast({ title: "Read Error", description: "An error occurred reading from the indicator.", variant: "destructive" });
+                    }
+                } finally {
+                    if(readerRef.current){
+                      readerRef.current.releaseLock();
                     }
                 }
             }
-        } catch (error) {
-            if (keepReadingRef.current) {
-                console.error("Read loop error:", error);
-                setConnectionStatus('error');
-                toast({ title: "Read Error", description: "An error occurred reading from the indicator.", variant: "destructive" });
-            }
-        } finally {
-            if(readerRef.current){
-               readerRef.current.releaseLock();
-            }
-        }
-    }
-  }, [toast]);
+          }, [toast, setReading]); // Add setReading to the dependency array
+
 
   const disconnect = useCallback(async () => {
     console.log("Disconnect called");
