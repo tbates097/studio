@@ -85,6 +85,8 @@ export function useIndicator() {
   const startPolling = useCallback(() => {
     if (IS_SIMULATION_ENABLED) return;
     
+    console.log("Starting polling...");
+    
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
     }
@@ -93,12 +95,17 @@ export function useIndicator() {
     pollingIntervalRef.current = setInterval(async () => {
       if (connectionStatus === 'connected' && writerRef.current) {
         try {
+          console.log("Sending polling command: ?");
           await sendCommand("?\r");
         } catch (error) {
           console.error("Polling error:", error);
         }
+      } else {
+        console.log("Polling skipped - not connected or no writer");
       }
     }, 125); // 8Hz polling rate
+    
+    console.log("Polling started with 125ms interval");
   }, [connectionStatus, sendCommand]);
 
   const stopPolling = useCallback(() => {
@@ -312,6 +319,7 @@ export function useIndicator() {
       
       // Small delay to ensure state has updated before starting polling
       setTimeout(() => {
+        console.log("Starting read loop and polling after delay...");
         keepReadingRef.current = true;
         readLoop();
         startPolling();
