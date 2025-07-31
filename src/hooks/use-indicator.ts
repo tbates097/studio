@@ -82,42 +82,42 @@ export function useIndicator() {
       return;
     }
 
-    // 1. Signal the read loop to stop
+    if (!portRef.current) return;
+
+    // 1. Signal the read loop to stop.
     keepReadingRef.current = false;
 
-    // 2. Cancel the reader. This will cause the read() promise to reject and exit the loop.
+    // 2. Cancel any pending reads. This will make the read() promise in the loop reject.
     if (readerRef.current) {
       try {
         await readerRef.current.cancel();
       } catch (error) {
-        // Ignore cancel errors, as they are expected
+         // Ignore cancel error, it's expected
       }
-    }
-    
-    // 3. Close the writer
-    if (writerRef.current) {
-      try {
-        if (!writerRef.current.closed) {
-          await writerRef.current.close();
-        }
-      } catch (error) {
-        console.warn("Failed to close writer:", error);
-      }
-    }
-    
-    // 4. Close the port
-    if (portRef.current) {
-        try {
-            await portRef.current.close();
-        } catch (error) {
-            console.error("Failed to close port:", error);
-        }
     }
 
-    portRef.current = null;
-    writerRef.current = null;
-    readerRef.current = null;
+    // 3. Close the writer.
+     if (writerRef.current) {
+        try {
+            if (!writerRef.current.closed) {
+              await writerRef.current.close();
+            }
+        } catch(error) {
+            console.warn("Error closing writer:", error);
+        }
+        writerRef.current = null;
+    }
+
+    // 4. Close the port. The readLoop should have already released its lock.
+    try {
+        await portRef.current.close();
+    } catch (error) {
+        console.error("Error closing port:", error);
+    }
     
+    portRef.current = null;
+    readerRef.current = null;
+
     if (connectionStatus !== 'disconnected') {
       setConnectionStatus('disconnected');
       setReading(0);
@@ -129,47 +129,53 @@ export function useIndicator() {
   }, [toast, connectionStatus]);
 
   const readLoop = useCallback(async (port: SerialPort) => {
-    if (!port.readable) {
-        console.error("Port is not readable.");
-        return;
-    }
     keepReadingRef.current = true;
-    readerRef.current = port.readable.getReader();
-
-    const textDecoder = new TextDecoder();
-    let buffer = '';
-
+    
     try {
-        while (keepReadingRef.current) {
-            const { value, done } = await readerRef.current.read();
-            if (done || !keepReadingRef.current) {
-                break; 
-            }
+        while (port.readable && keepReadingRef.current) {
+            readerRef.current = port.readable.getReader();
+            const textDecoder = new TextDecoder();
+            let buffer = '';
+            
+            try {
+                while (keepReadingRef.current) {
+                    const { value, done } = await readerRef.current.read();
+                    if (done) break;
 
-            buffer += textDecoder.decode(value, { stream: true });
-            const lines = buffer.split('\r\n');
-            buffer = lines.pop() || ''; 
+                    buffer += textDecoder.decode(value, { stream: true });
+                    const lines = buffer.split('\r\n');
+                    buffer = lines.pop() || '';
 
-            for (const line of lines) {
-                const trimmedLine = line.trim();
-                if (trimmedLine) {
-                  const parsedValue = parseFloat(trimmedLine);
-                  if (!isNaN(parsedValue)) {
-                      setReading(parsedValue);
-                  }
+                    for (const line of lines) {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine) {
+                            const parsedValue = parseFloat(trimmedLine);
+                            if (!isNaN(parsedValue)) {
+                                setReading(parsedValue);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                // This is expected when reader.cancel() is called.
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    // Swallow abort errors.
+                } else if(keepReadingRef.current) {
+                    console.error("Read loop error:", error);
+                    setConnectionStatus('error');
+                    toast({ title: "Read Error", description: "An error occurred reading from the indicator.", variant: "destructive" });
+                }
+            } finally {
+                if (readerRef.current) {
+                    readerRef.current.releaseLock();
                 }
             }
         }
     } catch (error) {
-        if (keepReadingRef.current) { // Only log if not an intentional disconnect
-            console.error("Read loop error:", error);
-            setConnectionStatus('error');
-            toast({ title: "Read Error", description: "An error occurred while reading from the indicator.", variant: "destructive" });
-        }
-    } finally {
-        if(readerRef.current) {
-            readerRef.current.releaseLock();
-            readerRef.current = null;
+        if(keepReadingRef.current){
+           console.error("Outer read loop error:", error);
+           setConnectionStatus('error');
+           toast({ title: "Connection Lost", description: "The connection to the port was lost.", variant: "destructive" });
         }
     }
   }, [toast]);
