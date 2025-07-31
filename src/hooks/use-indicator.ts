@@ -77,12 +77,18 @@ export function useIndicator() {
         
         try {
             while (keepReadingRef.current) {
+              if (!readerRef.current) {
+                    // Handle the case where readerRef.current is null, perhaps by breaking the loop or logging an error
+                    console.error("readerRef.current is null in readLoop");
+                    break; // Or return; depending on desired error handling
+                }
                 const { value, done } = await readerRef.current.read();
+        
                 if (done) break;
 
                 buffer += textDecoder.decode(value, { stream: true });
-                const lines = buffer.split('
-');
+                const lines = buffer.split('\r\n'); // Corrected line ending
+
                 buffer = lines.pop() || '';
 
                 for (const line of lines) {
