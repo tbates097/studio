@@ -17,74 +17,17 @@ export function useIndicatorTest() {
 
   const portRef = useRef<SerialPort | null>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const writerRef = useRef<WritableStreamDefaultWriter<any> | null>(null);
   const keepReadingRef = useRef(false);
-
-  const disconnect = useCallback(async (isSilent = false) => {
-    if (!portRef.current) {
-        // Already disconnected
-        setConnectionStatus('disconnected');
-        return;
-    }
-
-    console.log("Starting disconnect process...");
-    keepReadingRef.current = false;
-
-    // Cancel any pending reads
-    if (readerRef.current) {
-        try {
-            await readerRef.current.cancel();
-            console.log("Reader cancelled.");
-        } catch (error) {
-            console.warn("Error cancelling reader:", error);
-        }
-    }
-    
-    // The read loop should now release its lock and exit.
-    // We give it a moment before trying to close the port.
-    setTimeout(async () => {
-        if (portRef.current) {
-            try {
-                // Before closing the port, ensure writable is unlocked if it exists
-                if (portRef.current.writable && portRef.current.writable.locked) {
-                    // This is speculative and might not be needed, but can help in some cases
-                    try {
-                      await portRef.current.writable.getWriter().close();
-                      console.log("Writer closed.");
-                    } catch (e) {
-                      console.warn("Writer was already closed or could not be closed.", e);
-                    }
-                }
-                await portRef.current.close();
-                console.log("Port closed.");
-            } catch (error) {
-                console.error("Error closing port:", error);
-                if (!isSilent) {
-                  setLastError(`Failed to close port: ${(error as Error).message}. Please unplug/replug the device or restart the browser.`);
-                }
-            }
-        }
-        
-        portRef.current = null;
-        readerRef.current = null;
-        setConnectionStatus('disconnected');
-        setRawData('');
-        if (!isSilent) {
-          toast({ title: 'Disconnected', description: 'Serial connection closed.' });
-        }
-        console.log("Disconnect process finished.");
-    }, 150); // Increased timeout slightly
-
-  }, [toast]);
 
   const readLoop = useCallback(async (port: SerialPort) => {
     while (port.readable && keepReadingRef.current) {
       readerRef.current = port.readable.getReader();
       const textDecoder = new TextDecoder();
       try {
-        while (true) {
+        while (keepReadingRef.current) {
           const { value, done } = await readerRef.current.read();
           if (done) {
-            // Reader was cancelled, exit loop.
             break;
           }
           const decodedValue = textDecoder.decode(value);
@@ -92,17 +35,66 @@ export function useIndicatorTest() {
         }
       } catch (error) {
         if (keepReadingRef.current) {
-            console.error('Read loop error:', error);
-            setLastError(`Read error: ${(error as Error).message}`);
-            setConnectionStatus('error');
+          console.error('Read loop error:', error);
+          setLastError(`Read error: ${(error as Error).message}`);
+          setConnectionStatus('error');
         }
       } finally {
-        readerRef.current.releaseLock();
+        readerRef.current?.releaseLock();
         readerRef.current = null;
-        console.log("Reader lock released.");
+        console.log("Reader lock released in readLoop.");
       }
     }
   }, []);
+
+  const disconnect = useCallback(async () => {
+    console.log("Disconnect called");
+    if (!portRef.current) {
+      console.log("Port is already null.");
+      setConnectionStatus('disconnected');
+      return;
+    }
+
+    keepReadingRef.current = false;
+    
+    if (readerRef.current) {
+      try {
+        await readerRef.current.cancel();
+        console.log("Reader cancelled");
+      } catch (e) {
+        console.error("Could not cancel reader", e);
+      }
+    }
+
+    if (writerRef.current) {
+      try {
+        await writerRef.current.close();
+        console.log("Writer closed");
+      } catch(e) {
+        console.error("Could not close writer", e);
+      }
+      writerRef.current = null;
+    }
+
+    // A short delay to allow locks to be released.
+    setTimeout(async () => {
+      if (portRef.current) {
+          try {
+              await portRef.current.close();
+              console.log("Port closed");
+              portRef.current = null;
+              setConnectionStatus('disconnected');
+              setRawData('');
+              toast({ title: 'Disconnected', description: 'Serial connection closed.' });
+          } catch (e) {
+              console.error("Failed to close port", e);
+              setLastError(`Failed to close port: ${(e as Error).message}. Please unplug/replug the device or restart the browser.`);
+              setConnectionStatus('error');
+          }
+      }
+    }, 100);
+
+  }, [toast]);
 
   const connect = useCallback(async () => {
     if (!('serial' in navigator)) {
@@ -126,6 +118,8 @@ export function useIndicatorTest() {
 
       await port.open({ baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'even', flowControl: 'none' });
 
+      writerRef.current = port.writable?.getWriter() ?? null;
+
       setConnectionStatus('connected');
       toast({ title: 'Connected!', description: `Port opened successfully.` });
 
@@ -133,43 +127,25 @@ export function useIndicatorTest() {
       readLoop(port);
 
     } catch (error: any) {
-        let errorMessage = "An unknown error occurred.";
-        if (error instanceof DOMException) {
-            if (error.name === 'NotFoundError') {
-                errorMessage = "No port was selected by the user.";
-            } else if (error.name === 'InvalidStateError') {
-                errorMessage = "The port is already open or being used. Try disconnecting first.";
-            } else if (error.name === 'SecurityError') {
-                errorMessage = "Access to the serial port is disallowed by a permissions policy. This might be due to the app running in a restrictive iframe.";
-            } else {
-                errorMessage = error.message;
-            }
-        } else if (error instanceof Error) {
-            errorMessage = error.message;
-        }
-        
-        setLastError(errorMessage);
-        setConnectionStatus('error');
-        portRef.current = null;
-        toast({ title: 'Connection Failed', description: errorMessage, variant: 'destructive' });
+      setLastError(error.message);
+      setConnectionStatus('error');
+      portRef.current = null;
+      toast({ title: 'Connection Failed', description: error.message, variant: 'destructive' });
     }
-  }, [toast, readLoop]);
+  }, [toast, readLoop, disconnect]);
 
   const sendData = useCallback(async (data: string) => {
-    if (!portRef.current || !portRef.current.writable) {
+    if (!writerRef.current) {
       setLastError('Cannot send data: Port is not connected or not writable.');
       return;
     }
 
-    const writer = portRef.current.writable.getWriter();
-    const encoder = new TextEncoder();
     try {
-      await writer.write(encoder.encode(data));
+      const encoder = new TextEncoder();
+      await writerRef.current.write(encoder.encode(data));
       setRawData(prev => prev + `\n> SENT: ${data}\n`);
     } catch (error: any) {
       setLastError(`Failed to send data: ${error.message}`);
-    } finally {
-      writer.releaseLock();
     }
   }, []);
 
