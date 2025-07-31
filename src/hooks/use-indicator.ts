@@ -12,6 +12,21 @@ type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 const IS_SIMULATION_ENABLED = false;
 // -------------------------
 
+// Common serial port configurations for indicators
+const SERIAL_CONFIGS = [
+  // TT80/TT90 standard configuration
+  { baudRate: 4800, dataBits: 7, stopBits: 2, parity: 'even', flowControl: 'none' },
+  // Fallback configurations
+  { baudRate: 4800, dataBits: 7, stopBits: 1, parity: 'even', flowControl: 'none' },
+  { baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'none', flowControl: 'none' },
+  { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' },
+  { baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'odd', flowControl: 'none' },
+  { baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'even', flowControl: 'none' },
+  { baudRate: 19200, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' },
+];
+
+let currentConfigIndex = 0;
+
 /**
  * A hook to manage connection to a serial port for reading indicator data.
  * Can operate in real mode (Web Serial API) or simulation mode.
@@ -169,13 +184,24 @@ export function useIndicator() {
         writerRef.current = null;
     }
     
+    // Improved reader cleanup to prevent cancellation errors
     if (readerRef.current) {
         try {
-            await readerRef.current.cancel();
-             console.log("Reader cancelled");
+            // Only cancel if the reader hasn't been released
+            if (!readerRef.current.closed) {
+                await readerRef.current.cancel();
+                console.log("Reader cancelled");
+            }
         } catch (e) {
             console.error("Could not cancel reader", e);
+        } finally {
+            try {
+                readerRef.current.releaseLock();
+            } catch (e) {
+                console.error("Could not release reader lock", e);
+            }
         }
+        readerRef.current = null;
     }
 
     // A short delay to allow locks to be released.
@@ -239,14 +265,43 @@ export function useIndicator() {
       const port = await navigator.serial.requestPort();
       portRef.current = port;
       
-      await port.open({ baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'even', flowControl: 'none' });
+      // Try different serial configurations
+      let connected = false;
+      let lastError = null;
+      
+      for (let i = 0; i < SERIAL_CONFIGS.length; i++) {
+        try {
+          const config = SERIAL_CONFIGS[i];
+          console.log(`Trying serial config ${i + 1}:`, config);
+          
+          await port.open(config);
+          connected = true;
+          currentConfigIndex = i;
+          console.log(`Successfully connected with config ${i + 1}`);
+          break;
+        } catch (error) {
+          console.log(`Config ${i + 1} failed:`, error);
+          lastError = error;
+          
+          // Close port before trying next config
+          try {
+            await port.close();
+          } catch (closeError) {
+            console.log("Error closing port:", closeError);
+          }
+        }
+      }
+      
+      if (!connected) {
+        throw lastError || new Error("Failed to connect with any configuration");
+      }
       
       writerRef.current = port.writable?.getWriter() ?? null;
 
       setConnectionStatus('connected');
       toast({
         title: "Indicator Connected",
-        description: "Successfully connected to the measurement indicator.",
+        description: `Successfully connected to the measurement indicator using configuration ${currentConfigIndex + 1}.`,
       });
 
       keepReadingRef.current = true;
@@ -268,11 +323,11 @@ export function useIndicator() {
       } else {
         toast({
           title: "Connection Failed",
-          description: "Could not connect. Is it in use by another program?",
+          description: "Could not connect with any serial configuration. Please check your indicator settings.",
           variant: "destructive",
         });
         setConnectionStatus('disconnected');
-        console.error(error);
+        console.error("Connection error:", error);
       }
     }
   }, [toast, readLoop, startPolling]);
