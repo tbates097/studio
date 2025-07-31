@@ -28,6 +28,7 @@ export function useIndicator() {
   const keepReadingRef = useRef(false);
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const simulationBaseReadingRef = useRef(0);
+  const commandIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const setSimulationReading = useCallback((newReading: number) => {
     if (IS_SIMULATION_ENABLED) {
@@ -125,6 +126,13 @@ export function useIndicator() {
         clearInterval(simulationIntervalRef.current);
         simulationIntervalRef.current = null;
       }
+
+      if (commandIntervalRef.current) { // <-- Insert from here
+          clearInterval(commandIntervalRef.current);
+          commandIntervalRef.current = null;
+          console.log("Cleared command sending interval"); // Optional log
+      } // <-- to here
+
       setConnectionStatus('disconnected');
       setReading(0);
       toast({
@@ -226,7 +234,18 @@ export function useIndicator() {
         await writerRef.current.write(textEncoder.encode('?\r'));
         console.log("Sent '?' command to indicator"); // Add logging to confirm command sent
       }
-
+      commandIntervalRef.current = setInterval(async () => { // <-- Insert from here
+          if (writerRef.current) {
+              try {
+                  const textEncoder = new TextEncoder();
+                  await writerRef.current.write(textEncoder.encode('?\r'));
+                  // Optional: Add a log here to see when commands are sent by the interval
+                  // console.log("Sent '?' command via interval");
+              } catch (error) {
+                  console.error("Error sending command via interval:", error);
+              }
+          }
+      }, 150);
       setConnectionStatus('connected');
       toast({
         title: "Indicator Connected",
