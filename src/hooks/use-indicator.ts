@@ -9,7 +9,7 @@ type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 // --- SIMULATION TOGGLE ---
 // Set to true to use simulated data for testing without a physical indicator.
 // Set to false for real-world use with the Web Serial API.
-const IS_SIMULATION_ENABLED = true;
+const IS_SIMULATION_ENABLED = false;
 // -------------------------
 
 
