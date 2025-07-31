@@ -12,24 +12,18 @@ type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 const IS_SIMULATION_ENABLED = false;
 // -------------------------
 
-// Common serial port configurations for indicators
-const SERIAL_CONFIGS = [
-  // TT80/TT90 standard configuration
-  { baudRate: 4800, dataBits: 7, stopBits: 2, parity: 'even', flowControl: 'none' },
-  // Fallback configurations
-  { baudRate: 4800, dataBits: 7, stopBits: 1, parity: 'even', flowControl: 'none' },
-  { baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'none', flowControl: 'none' },
-  { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' },
-  { baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'odd', flowControl: 'none' },
-  { baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'even', flowControl: 'none' },
-  { baudRate: 19200, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' },
-];
-
-let currentConfigIndex = 0;
+// Serial configuration matching your Python code
+const SERIAL_CONFIG = {
+  baudRate: 4800,
+  dataBits: 7,
+  stopBits: 2,
+  parity: 'even',
+  flowControl: 'none'
+};
 
 /**
  * A hook to manage connection to a serial port for reading indicator data.
- * Can operate in real mode (Web Serial API) or simulation mode.
+ * Updated to match the actual device protocol from your Python code.
  */
 export function useIndicator() {
   const { toast } = useToast();
@@ -51,6 +45,7 @@ export function useIndicator() {
     }
   }, []);
 
+  // Updated to use the correct device commands
   const sendCommand = useCallback(async (command: string) => {
     if (IS_SIMULATION_ENABLED) {
       console.log(`Simulated command sent: ${command.trim()}`);
@@ -82,27 +77,24 @@ export function useIndicator() {
     }
   }, [connectionStatus, toast]);
 
-  // Add polling for real-time data using the correct indicator command
+  // Updated polling to use the correct "?" command
   const startPolling = useCallback(() => {
     if (IS_SIMULATION_ENABLED) return;
     
-    // Clear any existing polling
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
     }
 
-    // Poll for data every 100ms for real-time updates
-    // Using "? FNC 0" to request the displayed value (function 0 = normal reading)
+    // Poll for data every 125ms (8Hz to match your Python frequency)
     pollingIntervalRef.current = setInterval(async () => {
       if (connectionStatus === 'connected' && writerRef.current) {
         try {
-          console.log("Sending polling command: ? FNC 0");
-          await sendCommand("? FNC 0\r");
+          await sendCommand("?\r");
         } catch (error) {
           console.error("Polling error:", error);
         }
       }
-    }, 100); // 10Hz polling rate for smooth real-time updates
+    }, 125); // 8Hz polling rate
   }, [connectionStatus, sendCommand]);
 
   const stopPolling = useCallback(() => {
@@ -142,10 +134,25 @@ export function useIndicator() {
           const trimmedLine = line.trim();
           if (trimmedLine) {
             console.log("Processing line:", JSON.stringify(trimmedLine));
+            
+            // Check for error responses first
+            if (trimmedLine.startsWith("ERR")) {
+              console.error("Device Error:", trimmedLine);
+              toast({
+                title: "Device Error",
+                description: `Indicator reported: ${trimmedLine}`,
+                variant: "destructive",
+              });
+              continue;
+            }
+            
+            // Parse numeric response (like your Python code)
             const parsedValue = parseFloat(trimmedLine);
             if (!isNaN(parsedValue)) {
-              console.log("Updated reading:", parsedValue);
-              setReading(parsedValue);
+              // Convert to microns if in mm (matching your Python logic)
+              const valueInMicrons = parsedValue * 1000;
+              console.log("Updated reading:", valueInMicrons, "μm");
+              setReading(valueInMicrons);
             } else {
               console.log("Could not parse as number:", trimmedLine);
             }
@@ -156,7 +163,11 @@ export function useIndicator() {
       if (keepReadingRef.current) {
         console.error("Read loop error:", error);
         setConnectionStatus('error');
-        toast({ title: "Read Error", description: "An error occurred reading from the indicator.", variant: "destructive" });
+        toast({ 
+          title: "Read Error", 
+          description: "An error occurred reading from the indicator.", 
+          variant: "destructive" 
+        });
       }
     } finally {
       if (readerRef.current) {
@@ -167,7 +178,7 @@ export function useIndicator() {
 
   const disconnect = useCallback(async () => {
     console.log("Disconnect called");
-    stopPolling(); // Stop polling first
+    stopPolling();
     
     if (IS_SIMULATION_ENABLED) {
       if (simulationIntervalRef.current) {
@@ -195,10 +206,8 @@ export function useIndicator() {
         writerRef.current = null;
     }
     
-    // Improved reader cleanup to prevent cancellation errors
     if (readerRef.current) {
         try {
-            // Only cancel if the reader hasn't been released
             if (!readerRef.current.closed) {
                 await readerRef.current.cancel();
                 console.log("Reader cancelled");
@@ -215,7 +224,6 @@ export function useIndicator() {
         readerRef.current = null;
     }
 
-    // A short delay to allow locks to be released.
     setTimeout(async () => {
         if (portRef.current) {
             try {
@@ -276,48 +284,24 @@ export function useIndicator() {
       const port = await navigator.serial.requestPort();
       portRef.current = port;
       
-      // Try different serial configurations
-      let connected = false;
-      let lastError = null;
-      
-      for (let i = 0; i < SERIAL_CONFIGS.length; i++) {
-        try {
-          const config = SERIAL_CONFIGS[i];
-          console.log(`Trying serial config ${i + 1}:`, config);
-          
-          await port.open(config);
-          connected = true;
-          currentConfigIndex = i;
-          console.log(`Successfully connected with config ${i + 1}`);
-          break;
-        } catch (error) {
-          console.log(`Config ${i + 1} failed:`, error);
-          lastError = error;
-          
-          // Close port before trying next config
-          try {
-            await port.close();
-          } catch (closeError) {
-            console.log("Error closing port:", closeError);
-          }
-        }
-      }
-      
-      if (!connected) {
-        throw lastError || new Error("Failed to connect with any configuration");
-      }
+      console.log("Opening port with config:", SERIAL_CONFIG);
+      await port.open(SERIAL_CONFIG);
+      console.log("Successfully connected");
       
       writerRef.current = port.writable?.getWriter() ?? null;
 
       setConnectionStatus('connected');
       toast({
         title: "Indicator Connected",
-        description: `Successfully connected to the measurement indicator using configuration ${currentConfigIndex + 1}.`,
+        description: "Successfully connected to the measurement indicator.",
       });
 
+      // Initialize device with units command (MM for millimeters)
+      await sendCommand("MM\r");
+      
       keepReadingRef.current = true;
       readLoop();
-      startPolling(); // Start polling for real-time data
+      startPolling();
 
     } catch (error) {
       setConnectionStatus('error');
@@ -334,16 +318,15 @@ export function useIndicator() {
       } else {
         toast({
           title: "Connection Failed",
-          description: "Could not connect with any serial configuration. Please check your indicator settings.",
+          description: "Could not connect to the indicator. Please check your device.",
           variant: "destructive",
         });
         setConnectionStatus('disconnected');
         console.error("Connection error:", error);
       }
     }
-  }, [toast, readLoop, startPolling]);
+  }, [toast, readLoop, startPolling, sendCommand]);
 
-  // Effect to handle cleanup on component unmount or page close
   useEffect(() => {
     const cleanup = () => {
       stopPolling();
@@ -356,9 +339,17 @@ export function useIndicator() {
     
     return () => {
       window.removeEventListener('beforeunload', cleanup);
-      cleanup(); // Cleanup on component unmount
+      cleanup();
     };
   }, [connectionStatus, disconnect, stopPolling]);
 
-  return { reading, connect, disconnect, sendCommand, connectionStatus, isSimulation: IS_SIMULATION_ENABLED, setSimulationReading };
+  return { 
+    reading, 
+    connect, 
+    disconnect, 
+    sendCommand, 
+    connectionStatus, 
+    isSimulation: IS_SIMULATION_ENABLED, 
+    setSimulationReading 
+  };
 }
