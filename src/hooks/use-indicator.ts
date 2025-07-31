@@ -88,7 +88,9 @@ export function useIndicator() {
     // Gracefully release the writer
     if (writerRef.current) {
       try {
+        if(!writerRef.current.closed) {
           await writerRef.current.close();
+        }
       } catch(error) { 
           console.warn("Failed to close writer:", error);
       } finally {
@@ -142,7 +144,6 @@ export function useIndicator() {
         while (keepReadingRef.current) {
             const { value, done } = await readerRef.current.read();
             if (done) {
-                // The stream has been closed
                 break;
             }
 
@@ -161,12 +162,11 @@ export function useIndicator() {
             }
         }
       } catch (error) {
-         if (keepReadingRef.current) { // Avoid showing error on intentional disconnect
+         if (keepReadingRef.current) {
             console.error("Read loop error:", error);
             setConnectionStatus('error');
          }
       } finally {
-        // Ensure the lock is released when the loop exits
         if(readerRef.current) {
             readerRef.current.releaseLock();
             readerRef.current = null;
@@ -228,6 +228,7 @@ export function useIndicator() {
       portRef.current = null;
       if (error instanceof DOMException && error.name === 'NotFoundError') {
         // Don't show a toast if the user simply canceled the dialog
+        setConnectionStatus('disconnected');
       } else if (error instanceof DOMException && error.name === 'InvalidStateError') {
         toast({
           title: "Connection Failed",
@@ -246,7 +247,15 @@ export function useIndicator() {
   }, [toast, readLoop]);
 
   useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+        if (connectionStatus === 'connected') {
+            disconnect();
+        }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       if (connectionStatus === 'connected') {
         disconnect();
       }
