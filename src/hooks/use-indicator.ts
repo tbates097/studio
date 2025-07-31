@@ -217,8 +217,15 @@ export function useIndicator() {
       portRef.current = port;
       
       await port.open({ baudRate: 4800, dataBits: 7, stopBits: 2, parity: 'even', flowControl: 'none' });
-      
+
       writerRef.current = port.writable?.getWriter() ?? null;
+
+      // Send the command to request a reading
+      if (writerRef.current) {
+        const textEncoder = new TextEncoder();
+        await writerRef.current.write(textEncoder.encode('?\r'));
+        console.log("Sent '?' command to indicator"); // Add logging to confirm command sent
+      }
 
       setConnectionStatus('connected');
       toast({
@@ -228,6 +235,7 @@ export function useIndicator() {
 
       keepReadingRef.current = true;
       readLoop();
+
 
     } catch (error) {
       setConnectionStatus('error');
