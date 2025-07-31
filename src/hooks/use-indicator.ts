@@ -67,7 +67,49 @@ export function useIndicator() {
     }
   }, [connectionStatus, toast]);
 
+  const readLoop = useCallback(async () => {
+    if (!portRef.current) return;
+    
+    while (portRef.current.readable && keepReadingRef.current) {
+        readerRef.current = portRef.current.readable.getReader();
+        const textDecoder = new TextDecoder();
+        let buffer = '';
+        
+        try {
+            while (keepReadingRef.current) {
+                const { value, done } = await readerRef.current.read();
+                if (done) break;
+
+                buffer += textDecoder.decode(value, { stream: true });
+                const lines = buffer.split('\r\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine) {
+                        const parsedValue = parseFloat(trimmedLine);
+                        if (!isNaN(parsedValue)) {
+                            setReading(parsedValue);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            if (keepReadingRef.current) {
+                console.error("Read loop error:", error);
+                setConnectionStatus('error');
+                toast({ title: "Read Error", description: "An error occurred reading from the indicator.", variant: "destructive" });
+            }
+        } finally {
+            if(readerRef.current){
+               readerRef.current.releaseLock();
+            }
+        }
+    }
+  }, [toast]);
+
   const disconnect = useCallback(async () => {
+    console.log("Disconnect called");
     if (IS_SIMULATION_ENABLED) {
       if (simulationIntervalRef.current) {
         clearInterval(simulationIntervalRef.current);
@@ -82,104 +124,52 @@ export function useIndicator() {
       return;
     }
 
-    if (!portRef.current) return;
-
-    // 1. Signal the read loop to stop.
     keepReadingRef.current = false;
 
-    // 2. Cancel any pending reads. This will make the read() promise in the loop reject.
-    if (readerRef.current) {
-      try {
-        await readerRef.current.cancel();
-      } catch (error) {
-         // Ignore cancel error, it's expected
-      }
-    }
-
-    // 3. Close the writer.
-     if (writerRef.current) {
+    if (writerRef.current) {
         try {
-            if (!writerRef.current.closed) {
-              await writerRef.current.close();
-            }
-        } catch(error) {
-            console.warn("Error closing writer:", error);
+            await writerRef.current.close();
+            console.log("Writer closed");
+        } catch(e) {
+            console.error("Could not close writer", e);
         }
         writerRef.current = null;
     }
-
-    // 4. Close the port. The readLoop should have already released its lock.
-    try {
-        await portRef.current.close();
-    } catch (error) {
-        console.error("Error closing port:", error);
-    }
     
-    portRef.current = null;
-    readerRef.current = null;
-
-    if (connectionStatus !== 'disconnected') {
-      setConnectionStatus('disconnected');
-      setReading(0);
-      toast({
-          title: "Indicator Disconnected",
-          description: "The connection to the indicator has been closed.",
-      });
+    if (readerRef.current) {
+        try {
+            await readerRef.current.cancel();
+             console.log("Reader cancelled");
+        } catch (e) {
+            console.error("Could not cancel reader", e);
+        }
     }
-  }, [toast, connectionStatus]);
 
-  const readLoop = useCallback(async (port: SerialPort) => {
-    keepReadingRef.current = true;
-    
-    try {
-        while (port.readable && keepReadingRef.current) {
-            readerRef.current = port.readable.getReader();
-            const textDecoder = new TextDecoder();
-            let buffer = '';
-            
+    // A short delay to allow locks to be released.
+    setTimeout(async () => {
+        if (portRef.current) {
             try {
-                while (keepReadingRef.current) {
-                    const { value, done } = await readerRef.current.read();
-                    if (done) break;
-
-                    buffer += textDecoder.decode(value, { stream: true });
-                    const lines = buffer.split('\r\n');
-                    buffer = lines.pop() || '';
-
-                    for (const line of lines) {
-                        const trimmedLine = line.trim();
-                        if (trimmedLine) {
-                            const parsedValue = parseFloat(trimmedLine);
-                            if (!isNaN(parsedValue)) {
-                                setReading(parsedValue);
-                            }
-                        }
-                    }
-                }
-            } catch (error) {
-                // This is expected when reader.cancel() is called.
-                if (error instanceof DOMException && error.name === 'AbortError') {
-                    // Swallow abort errors.
-                } else if(keepReadingRef.current) {
-                    console.error("Read loop error:", error);
-                    setConnectionStatus('error');
-                    toast({ title: "Read Error", description: "An error occurred reading from the indicator.", variant: "destructive" });
-                }
-            } finally {
-                if (readerRef.current) {
-                    readerRef.current.releaseLock();
-                }
+                await portRef.current.close();
+                console.log("Port closed");
+                portRef.current = null;
+                setConnectionStatus('disconnected');
+                setReading(0);
+                 toast({
+                    title: "Indicator Disconnected",
+                    description: "The connection to the indicator has been closed.",
+                });
+            } catch (e) {
+                console.error("Failed to close port", e);
+                 toast({
+                    title: "Disconnect Error",
+                    description: "Could not close port. It may be stuck. Please unplug the device.",
+                    variant: "destructive"
+                });
             }
         }
-    } catch (error) {
-        if(keepReadingRef.current){
-           console.error("Outer read loop error:", error);
-           setConnectionStatus('error');
-           toast({ title: "Connection Lost", description: "The connection to the port was lost.", variant: "destructive" });
-        }
-    }
-  }, [toast]);
+    }, 100);
 
+  }, [toast]);
 
   const connect = useCallback(async () => {
     if (IS_SIMULATION_ENABLED) {
@@ -226,14 +216,13 @@ export function useIndicator() {
         description: "Successfully connected to the measurement indicator.",
       });
 
-      // Start the single, persistent read loop
-      readLoop(port);
+      keepReadingRef.current = true;
+      readLoop();
 
     } catch (error) {
       setConnectionStatus('error');
       portRef.current = null;
       if (error instanceof DOMException && error.name === 'NotFoundError') {
-        // Don't show a toast if the user simply canceled the dialog
         setConnectionStatus('disconnected');
       } else if (error instanceof DOMException && error.name === 'InvalidStateError') {
         toast({
