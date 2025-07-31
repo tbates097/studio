@@ -56,7 +56,10 @@ export function useIndicator() {
       return;
     }
 
+    console.log(`Attempting to send command: ${command.trim()}, connectionStatus: ${connectionStatus}, writerRef: ${!!writerRef.current}`);
+    
     if (connectionStatus !== 'connected' || !writerRef.current) {
+      console.log("Cannot send command - not connected or no writer");
       toast({
         title: "Cannot Send Command",
         description: "Indicator is not connected.",
@@ -67,6 +70,7 @@ export function useIndicator() {
     try {
       const textEncoder = new TextEncoder();
       await writerRef.current.write(textEncoder.encode(command));
+      console.log(`Successfully sent command: ${command.trim()}`);
     } catch (error) {
       console.error("Error writing to port:", error);
       toast({
@@ -290,18 +294,28 @@ export function useIndicator() {
       
       writerRef.current = port.writable?.getWriter() ?? null;
 
+      // Set connection status first
       setConnectionStatus('connected');
+      
+      // Initialize device with units command (MM for millimeters)
+      // Use direct writer instead of sendCommand to avoid state check issues
+      if (writerRef.current) {
+        const textEncoder = new TextEncoder();
+        await writerRef.current.write(textEncoder.encode("MM\r"));
+        console.log("Sent MM command to initialize device");
+      }
+      
       toast({
         title: "Indicator Connected",
         description: "Successfully connected to the measurement indicator.",
       });
-
-      // Initialize device with units command (MM for millimeters)
-      await sendCommand("MM\r");
       
-      keepReadingRef.current = true;
-      readLoop();
-      startPolling();
+      // Small delay to ensure state has updated before starting polling
+      setTimeout(() => {
+        keepReadingRef.current = true;
+        readLoop();
+        startPolling();
+      }, 100);
 
     } catch (error) {
       setConnectionStatus('error');
