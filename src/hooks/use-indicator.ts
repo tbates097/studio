@@ -84,18 +84,27 @@ export function useIndicator() {
     
     keepReadingRef.current = false;
 
+    // More robust disconnect sequence
     if (readerRef.current) {
       try {
         await readerRef.current.cancel();
-      } catch (error) { /* Ignore cancel error */ }
-      readerRef.current.releaseLock();
+      } catch (error) { 
+        console.warn("Failed to cancel reader:", error);
+      } finally {
+        readerRef.current.releaseLock();
+        readerRef.current = null;
+      }
     }
     
     if (writerRef.current) {
         try {
             await writerRef.current.close();
-        } catch(error) { /* Ignore close error */ }
-        writerRef.current.releaseLock();
+        } catch(error) { 
+            console.warn("Failed to close writer:", error);
+        } finally {
+            writerRef.current.releaseLock();
+            writerRef.current = null;
+        }
     }
 
     if (portRef.current) {
@@ -103,12 +112,11 @@ export function useIndicator() {
         await portRef.current.close();
       } catch (error) {
          console.warn("Error closing port:", error);
+      } finally {
+        portRef.current = null;
       }
     }
 
-    portRef.current = null;
-    readerRef.current = null;
-    writerRef.current = null;
     setConnectionStatus('disconnected');
     setReading(0);
      toast({
@@ -127,29 +135,40 @@ export function useIndicator() {
     while (portRef.current?.readable && keepReadingRef.current) {
       readerRef.current = portRef.current.readable.getReader();
       try {
-        const { value, done } = await readerRef.current.read();
-        if (done) break;
-
-        buffer += textDecoder.decode(value, { stream: true });
-        const lines = buffer.split('\\r\\n');
-        buffer = lines.pop() || ''; 
-
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine) {
-            const parsedValue = parseFloat(trimmedLine);
-            if (!isNaN(parsedValue)) {
-              setReading(parsedValue);
+        while (true) {
+            const { value, done } = await readerRef.current.read();
+            if (done || !keepReadingRef.current) {
+                // Reader has been cancelled.
+                break;
             }
-          }
+
+            buffer += textDecoder.decode(value, { stream: true });
+            const lines = buffer.split('\r\n');
+            buffer = lines.pop() || ''; 
+
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine) {
+                const parsedValue = parseFloat(trimmedLine);
+                if (!isNaN(parsedValue)) {
+                    setReading(parsedValue);
+                }
+                }
+            }
         }
       } catch (error) {
         console.error("Read loop error:", error);
-        break; 
       } finally {
         if(readerRef.current) {
-            readerRef.current.releaseLock();
+            try {
+              readerRef.current.releaseLock();
+            } catch(e) {
+                // Ignore as lock might already be released
+            }
         }
+      }
+      if (!keepReadingRef.current) {
+          break;
       }
     }
   }, []);
@@ -190,7 +209,7 @@ export function useIndicator() {
       const port = await navigator.serial.requestPort();
       portRef.current = port;
       
-      await port.open({ baudRate: 9600 });
+      await port.open({ baudRate: 9600, dataBits: 7, stopBits: 1, parity: 'even', flowControl: 'none' });
       
       writerRef.current = port.writable?.getWriter() ?? null;
 
@@ -209,7 +228,7 @@ export function useIndicator() {
         toast({
           title: "Connection Canceled",
           description: "No serial port was selected.",
-          variant: "destructive",
+          variant: "default",
         });
       } else {
         toast({
@@ -217,9 +236,10 @@ export function useIndicator() {
           description: "Could not connect. Is it in use by another program?",
           variant: "destructive",
         });
+        console.error(error);
       }
     }
-  }, [toast, readLoop]);
+  }, [toast, readLoop, disconnect]);
 
   useEffect(() => {
     return () => {
