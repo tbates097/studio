@@ -46,8 +46,13 @@ export function useIndicatorTest() {
             try {
                 // Before closing the port, ensure writable is unlocked if it exists
                 if (portRef.current.writable && portRef.current.writable.locked) {
-                    await portRef.current.writable.getWriter().close();
-                    console.log("Writer closed.");
+                    // This is speculative and might not be needed, but can help in some cases
+                    try {
+                      await portRef.current.writable.getWriter().close();
+                      console.log("Writer closed.");
+                    } catch (e) {
+                      console.warn("Writer was already closed or could not be closed.", e);
+                    }
                 }
                 await portRef.current.close();
                 console.log("Port closed.");
@@ -67,7 +72,7 @@ export function useIndicatorTest() {
           toast({ title: 'Disconnected', description: 'Serial connection closed.' });
         }
         console.log("Disconnect process finished.");
-    }, 100);
+    }, 150); // Increased timeout slightly
 
   }, [toast]);
 
@@ -93,6 +98,7 @@ export function useIndicatorTest() {
         }
       } finally {
         readerRef.current.releaseLock();
+        readerRef.current = null;
         console.log("Reader lock released.");
       }
     }
@@ -132,7 +138,9 @@ export function useIndicatorTest() {
             if (error.name === 'NotFoundError') {
                 errorMessage = "No port was selected by the user.";
             } else if (error.name === 'InvalidStateError') {
-                errorMessage = "The port is already open or being used.";
+                errorMessage = "The port is already open or being used. Try disconnecting first.";
+            } else if (error.name === 'SecurityError') {
+                errorMessage = "Access to the serial port is disallowed by a permissions policy. This might be due to the app running in a restrictive iframe.";
             } else {
                 errorMessage = error.message;
             }

@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Link, Unlink, Send } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react';
 
 export function ConnectionTester() {
   const {
@@ -64,8 +66,8 @@ export function ConnectionTester() {
               <Link /> {isConnecting ? 'Connecting...' : 'Connect to COM4'}
             </Button>
             <Button
-              onClick={disconnect}
-              disabled={!isConnected}
+              onClick={() => disconnect()}
+              disabled={!isConnected && !isConnecting}
               className="w-full"
               variant="outline"
             >
@@ -74,9 +76,13 @@ export function ConnectionTester() {
           </div>
 
           {lastError && (
-            <div className="p-3 text-sm text-red-700 bg-red-100 border border-red-200 rounded-md dark:bg-red-900/30 dark:text-red-300 dark:border-red-500/50">
-              <strong>Error:</strong> {lastError}
-            </div>
+            <Alert variant="destructive">
+              <Terminal className="h-4 w-4" />
+              <AlertTitle>Connection Error</AlertTitle>
+              <AlertDescription>
+                {lastError}
+              </AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
