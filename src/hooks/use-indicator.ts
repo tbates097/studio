@@ -83,11 +83,14 @@ export function useIndicator() {
                     break; // Or return; depending on desired error handling
                 }
                 const { value, done } = await readerRef.current.read();
-        
+                console.log('Received data chunk:', value, 'Done:', done);
+
                 if (done) break;
 
                 buffer += textDecoder.decode(value, { stream: true });
+                console.log('Buffer after decoding:', buffer);
                 const lines = buffer.split('\r\n'); // Corrected line ending
+                console.log('Processed lines:', lines);
 
                 buffer = lines.pop() || '';
 
