@@ -707,9 +707,18 @@ function AdjustmentBar({
   spec: number,
   showSpecMessage?: boolean
 }) {
-  if (!result) return null;
+  console.log('AdjustmentBar - result:', result);
+  console.log('AdjustmentBar - travelDistance:', travelDistance);
+  console.log('AdjustmentBar - spec:', spec);
+  
+  if (!result) {
+    console.log('AdjustmentBar - returning null because result is falsy');
+    return null;
+  }
 
   const { value, unit } = result;
+  
+  console.log('AdjustmentBar - value:', value, 'unit:', unit);
   
   const valueInArcsec = unit === 'arcsec' 
     ? value
@@ -724,6 +733,8 @@ function AdjustmentBar({
   const inSpec = unit === 'arcsec' && Math.abs(value) <= spec;
 
   const indicatorPosition = `calc(${50 + percentage / 2}%)`;
+
+  console.log('AdjustmentBar - rendering with value:', value, 'unit:', unit, 'inSpec:', inSpec);
 
   return (
     <Card>
