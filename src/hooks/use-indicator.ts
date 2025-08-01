@@ -48,15 +48,12 @@ export function useIndicator() {
   // Updated to use the correct device commands
   const sendCommand = useCallback(async (command: string) => {
     if (IS_SIMULATION_ENABLED) {
-      console.log(`Simulated command sent: ${command.trim()}`);
       toast({
         title: "Simulator Command",
         description: `Command "${command.trim()}" sent to simulator.`,
       });
       return;
     }
-
-    console.log(`Attempting to send command: ${command.trim()}, connectionStatus: ${connectionStatus}, writerRef: ${!!writerRef.current}`);
     
     if (connectionStatus !== 'connected' || !writerRef.current) {
       console.log("Cannot send command - not connected or no writer");
@@ -70,7 +67,7 @@ export function useIndicator() {
     try {
       const textEncoder = new TextEncoder();
       await writerRef.current.write(textEncoder.encode(command));
-      console.log(`Successfully sent command: ${command.trim()}`);
+
     } catch (error) {
       console.error("Error writing to port:", error);
       toast({
@@ -85,7 +82,6 @@ export function useIndicator() {
   const startPolling = useCallback(() => {
     if (IS_SIMULATION_ENABLED) return;
     
-    console.log("Starting polling...");
     
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
@@ -96,10 +92,8 @@ export function useIndicator() {
       // Check current state directly from refs instead of captured state
       if (writerRef.current) {
         try {
-          console.log("Sending polling command: ?");
           const textEncoder = new TextEncoder();
           await writerRef.current.write(textEncoder.encode("?\r"));
-          console.log("Polling command sent successfully");
         } catch (error) {
           console.error("Polling error:", error);
         }
@@ -108,7 +102,6 @@ export function useIndicator() {
       }
     }, 125); // 8Hz polling rate
     
-    console.log("Polling started with 125ms interval");
   }, []); // Remove dependencies to avoid stale closure issues
 
   const stopPolling = useCallback(() => {
@@ -128,26 +121,21 @@ export function useIndicator() {
       const textDecoder = new TextDecoder();
       let buffer = '';
       
-      console.log("Starting read loop...");
       
       while (keepReadingRef.current) {
         const { value, done } = await readerRef.current.read();
         if (done) break;
 
         const decoded = textDecoder.decode(value, { stream: true });
-        console.log("Raw received data:", JSON.stringify(decoded));
         
         buffer += decoded;
         const lines = buffer.split('\r\n');
         buffer = lines.pop() || '';
 
-        console.log("Processed lines:", lines);
-        console.log("Remaining buffer:", JSON.stringify(buffer));
 
         for (const line of lines) {
           const trimmedLine = line.trim();
           if (trimmedLine) {
-            console.log("Processing line:", JSON.stringify(trimmedLine));
             
             // Check for error responses first
             if (trimmedLine.startsWith("ERR")) {
@@ -165,7 +153,7 @@ export function useIndicator() {
             if (!isNaN(parsedValue)) {
               // Convert to microns if in mm (matching your Python logic)
               const valueInMicrons = parsedValue * 1000;
-              console.log("Updated reading:", valueInMicrons, "μm");
+
               setReading(valueInMicrons);
             } else {
               console.log("Could not parse as number:", trimmedLine);
@@ -312,7 +300,6 @@ export function useIndicator() {
       if (writerRef.current) {
         const textEncoder = new TextEncoder();
         await writerRef.current.write(textEncoder.encode("MM\r"));
-        console.log("Sent MM command to initialize device");
       }
       
       toast({
@@ -322,7 +309,6 @@ export function useIndicator() {
       
       // Small delay to ensure state has updated before starting polling
       setTimeout(() => {
-        console.log("Starting read loop and polling after delay...");
         keepReadingRef.current = true;
         readLoop();
         startPolling();
