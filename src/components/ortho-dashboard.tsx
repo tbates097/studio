@@ -62,7 +62,7 @@ type Measurement = {
 
 type OrthogonalityResult = {
   value: number;
-  unit: "arcsec" | "μm";
+  unit: "arcsec";
 } | null;
 
 type ReportData = {
@@ -146,37 +146,16 @@ export function OrthoDashboard() {
     } else if (step === "squaring") {
         setStep("referenceMeasurement");
     } else if (step === "referenceMeasurement") {
-        const distance = parseFloat(travelDistance);
-        const reading1 = squaringMeasurements[0]?.reading ?? 0;
-        const reading2 = squaringMeasurements[squaringMeasurements.length - 1]?.reading ?? 0;
-        const result = calculateOrthogonality(reading1, reading2, distance);
-        setSquaringResult(result);
+        // For live adjustment workflow, we don't need multi-point measurements
+        // The live feedback is handled by the liveSquaringOrthogonality calculation
         setStep("adjustment");
     } else if (step === "adjustment") {
         setAdjustmentZero(null); // Reset zero for measurement step
         setMeasurements([]);
         setStep("finalMeasurement");
     } else if (step === "finalMeasurement") {
-        const distance = parseFloat(travelDistance);
-        const reading1 = measurements[0]?.reading ?? 0;
-        const reading2 = measurements[measurements.length - 1]?.reading ?? 0;
-        
-        const rawResult = calculateOrthogonality(reading1, reading2, distance);
-
-        if (rawResult) {
-            const squaringError = squaringResult?.value ?? 0;
-            if (rawResult.unit === 'arcsec' && squaringResult?.unit === 'arcsec') {
-                 setFinalResult({
-                    value: rawResult.value - squaringError,
-                    unit: 'arcsec'
-                });
-            } else {
-                setFinalResult(rawResult); 
-            }
-        } else {
-            setFinalResult(null);
-        }
-
+        // For live adjustment workflow, we don't need multi-point measurements
+        // The live feedback is handled by the liveOrthogonality calculation
         setStep("results");
     }
   };
@@ -233,7 +212,14 @@ export function OrthoDashboard() {
   const squaringLiveReading = squaringZero !== null ? currentReading - squaringZero : currentReading;
   const adjustmentLiveReading = adjustmentZero !== null ? currentReading - adjustmentZero : currentReading;
   
-  const liveOrthogonality = adjustmentZero !== null ? calculateOrthogonality(adjustmentZero, currentReading, parseFloat(travelDistance)) : null;
+  // Updated to use differential readings directly for live feedback
+  const liveSquaringOrthogonality = squaringZero !== null 
+    ? calculateOrthogonality(currentReading - squaringZero) 
+    : null;
+  
+  const liveOrthogonality = adjustmentZero !== null 
+    ? calculateOrthogonality(currentReading - adjustmentZero) 
+    : null;
 
   const renderStepContent = () => {
     const distance = parseFloat(travelDistance) || 0;
@@ -394,8 +380,9 @@ export function OrthoDashboard() {
                 <CardHeader>
                     <CardTitle>Step 2: Squaring Artifact to Reference Axis</CardTitle>
                     <CardDescription>
-                        Use the indicator feedback to square one side of your artifact to the axis of travel.
-                        Zero the indicator at one end, move to the other, and adjust until within spec before proceeding.
+                        Zero the differential reading at one end of travel, then move to the other end. 
+                        Use the live arcsecond feedback to adjust the artifact face until it shows 0 arcseconds.
+                        This ensures the face is perfectly square to the axis of motion.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
