@@ -217,6 +217,12 @@ export function OrthoDashboard() {
     ? calculateOrthogonality(currentReading - squaringZero) 
     : null;
   
+  // Debug logging
+  console.log('Debug - squaringZero:', squaringZero);
+  console.log('Debug - currentReading:', currentReading);
+  console.log('Debug - differential:', currentReading - squaringZero);
+  console.log('Debug - liveSquaringOrthogonality:', liveSquaringOrthogonality);
+  
   const liveOrthogonality = adjustmentZero !== null 
     ? calculateOrthogonality(currentReading - adjustmentZero) 
     : null;
