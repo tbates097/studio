@@ -93,20 +93,23 @@ export function useIndicator() {
 
     // Poll for data every 125ms (8Hz to match your Python frequency)
     pollingIntervalRef.current = setInterval(async () => {
-      if (connectionStatus === 'connected' && writerRef.current) {
+      // Check current state directly from refs instead of captured state
+      if (writerRef.current) {
         try {
           console.log("Sending polling command: ?");
-          await sendCommand("?\r");
+          const textEncoder = new TextEncoder();
+          await writerRef.current.write(textEncoder.encode("?\r"));
+          console.log("Polling command sent successfully");
         } catch (error) {
           console.error("Polling error:", error);
         }
       } else {
-        console.log("Polling skipped - not connected or no writer");
+        console.log("Polling skipped - no writer available");
       }
     }, 125); // 8Hz polling rate
     
     console.log("Polling started with 125ms interval");
-  }, [connectionStatus, sendCommand]);
+  }, []); // Remove dependencies to avoid stale closure issues
 
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
@@ -347,7 +350,7 @@ export function useIndicator() {
         console.error("Connection error:", error);
       }
     }
-  }, [toast, readLoop, startPolling, sendCommand]);
+  }, [toast, readLoop, startPolling]);
 
   useEffect(() => {
     const cleanup = () => {
