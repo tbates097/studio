@@ -376,9 +376,6 @@ export function OrthoDashboard() {
         );
 
       case "squaring": {
-        const liveSquaringOrthogonality = squaringZero !== null 
-            ? calculateOrthogonality(squaringZero, currentReading, distance) 
-            : null;
         const inSpec = liveSquaringOrthogonality !== null && liveSquaringOrthogonality.unit === 'arcsec' && Math.abs(liveSquaringOrthogonality.value) <= SPEC_ARCSECONDS;
         
         return (
