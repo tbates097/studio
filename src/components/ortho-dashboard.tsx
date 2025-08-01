@@ -424,7 +424,6 @@ export function OrthoDashboard() {
                     {squaringZero !== null ? (
                         <AdjustmentBar 
                             result={liveSquaringOrthogonality} 
-                            travelDistance={distance} 
                             spec={SPEC_ARCSECONDS}
                             showSpecMessage={false}
                         />
@@ -530,7 +529,6 @@ export function OrthoDashboard() {
                 {adjustmentZero !== null ? (
                     <AdjustmentBar 
                     result={liveOrthogonality} 
-                    travelDistance={distance} 
                     spec={SPEC_ARCSECONDS} 
                     />
                 ) : (
@@ -698,17 +696,14 @@ function LiveReadingCard({
 
 function AdjustmentBar({ 
   result, 
-  travelDistance, 
   spec, 
   showSpecMessage = true 
 }: { 
   result: OrthogonalityResult, 
-  travelDistance: number, 
   spec: number,
   showSpecMessage?: boolean
 }) {
   console.log('AdjustmentBar - result:', result);
-  console.log('AdjustmentBar - travelDistance:', travelDistance);
   console.log('AdjustmentBar - spec:', spec);
   
   if (!result) {
@@ -720,17 +715,15 @@ function AdjustmentBar({
   
   console.log('AdjustmentBar - value:', value, 'unit:', unit);
   
-  const valueInArcsec = unit === 'arcsec' 
-    ? value
-    : (Math.atan((value / 1000) / travelDistance) * (180 / Math.PI) * 3600);
-
+  // Since we're now only using arcseconds, we can simplify this
+  const valueInArcsec = value; // Already in arcseconds
   const maxDisplayArcsec = spec * 3; 
   
   const percentage = maxDisplayArcsec !== 0 
     ? Math.max(-100, Math.min(100, (valueInArcsec / maxDisplayArcsec) * 100))
     : 0;
 
-  const inSpec = unit === 'arcsec' && Math.abs(value) <= spec;
+  const inSpec = Math.abs(value) <= spec;
 
   const indicatorPosition = `calc(${50 + percentage / 2}%)`;
 
@@ -764,7 +757,7 @@ function AdjustmentBar({
             <p className="font-bold text-lg">{value.toFixed(2)} {unit}</p>
             {showSpecMessage && (
               <p className={cn("font-semibold", inSpec ? "text-green-500" : "text-red-500")}>
-                  {inSpec ? "✔ In Spec" : (unit === 'arcsec' ? "✖ Out of Spec" : "Adjust for Arcsecond Reading")}
+                  {inSpec ? "✔ In Spec" : "✖ Out of Spec"}
               </p>
             )}
         </div>
