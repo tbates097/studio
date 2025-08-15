@@ -214,17 +214,18 @@ export function OrthoDashboard() {
   
   // Updated to use differential readings directly for live feedback
   const liveSquaringOrthogonality = squaringZero !== null 
-    ? calculateOrthogonality(currentReading - squaringZero) 
+    ? calculateOrthogonality(currentReading - squaringZero, parseFloat(travelDistance)) 
     : null;
   
   // Debug logging
   console.log('Debug - squaringZero:', squaringZero);
   console.log('Debug - currentReading:', currentReading);
   console.log('Debug - differential:', currentReading - squaringZero);
+  console.log('Debug - travelDistance:', travelDistance);
   console.log('Debug - liveSquaringOrthogonality:', liveSquaringOrthogonality);
   
   const liveOrthogonality = adjustmentZero !== null 
-    ? calculateOrthogonality(currentReading - adjustmentZero) 
+    ? calculateOrthogonality(currentReading - adjustmentZero, parseFloat(travelDistance)) 
     : null;
 
   const renderStepContent = () => {
