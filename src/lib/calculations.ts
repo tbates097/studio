@@ -1,33 +1,33 @@
-
 /**
- * Calculates the orthogonality based on differential measurements from a dual-probe indicator.
+ * Calculates the orthogonality based on slope measurement from position/reading pairs.
  * 
- * The system uses two probes (A and B) spaced 30mm apart on the artifact face.
- * The differential reading = Probe A - Probe B (in microns).
+ * This calculates the straightness/parallelism error of the artifact face relative to stage travel.
+ * The result represents how much the face is tilted and remains constant regardless of carriage position.
  * 
- * @param differentialReading The differential measurement from the indicator (in microns).
- * @param travelDistance The distance the stage traveled (in mm).
- * @param probeSpacing The spacing between the two probes (in mm). Default is 30mm.
+ * @param zeroReading The indicator reading at the zero position (in microns).
+ * @param currentReading The current indicator reading (in microns).
+ * @param currentPosition The current carriage position (in mm from zero).
  * @returns An object containing the calculated angle in arcseconds, or null if invalid.
  */
 export function calculateOrthogonality(
-  differentialReading: number,
-  travelDistance: number,
-  probeSpacing: number = 30
+  zeroReading: number,
+  currentReading: number,
+  currentPosition: number
 ): { value: number; unit: "arcsec" } | null {
-  if (probeSpacing <= 0 || travelDistance <= 0) {
+  if (currentPosition <= 0) {
     return null;
   }
 
-  // Convert differential reading from microns to mm
-  const deviationInMm = differentialReading / 1000;
+  // Calculate slope: change in reading over travel distance
+  const deltaReading = currentReading - zeroReading; // in microns
+  const slope = deltaReading / currentPosition; // microns per mm
   
-  // Calculate angle using the relationship between travel distance and probe spacing
-  // The angle represents how much the artifact face deviates from being parallel to the axis
-  const angleInRadians = (deviationInMm / probeSpacing) * (travelDistance / probeSpacing);
+  // Convert slope to angle in radians
+  // slope is μm/mm = 10^-3 m/m = 10^-3 radians (for small angles)
+  const angleInRadians = slope * 1e-3;
   
-  // Convert radians to arcseconds: (radians * 180 / PI) * 3600
-  const angleInArcseconds = angleInRadians * (180 / Math.PI) * 3600;
+  // Convert radians to arcseconds: radians * 206265
+  const angleInArcseconds = angleInRadians * 206265;
   
   return {
     value: angleInArcseconds,

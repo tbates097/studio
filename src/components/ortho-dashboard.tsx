@@ -82,6 +82,7 @@ const SPEC_ARCSECONDS = 5;
 export function OrthoDashboard() {
   const [step, setStep] = useState<Step>("setup");
   const [travelDistance, setTravelDistance] = useState("100");
+  const [currentPosition, setCurrentPosition] = useState("0");
   const { 
     reading: currentReading, 
     connect, 
@@ -212,20 +213,19 @@ export function OrthoDashboard() {
   const squaringLiveReading = squaringZero !== null ? currentReading - squaringZero : currentReading;
   const adjustmentLiveReading = adjustmentZero !== null ? currentReading - adjustmentZero : currentReading;
   
-  // Updated to use differential readings directly for live feedback
-  const liveSquaringOrthogonality = squaringZero !== null 
-    ? calculateOrthogonality(currentReading - squaringZero, parseFloat(travelDistance)) 
+  // Updated to use slope-based calculation for live feedback
+  const liveSquaringOrthogonality = squaringZero !== null && parseFloat(currentPosition) > 0
+    ? calculateOrthogonality(squaringZero, currentReading, parseFloat(currentPosition)) 
     : null;
   
   // Debug logging
   console.log('Debug - squaringZero:', squaringZero);
   console.log('Debug - currentReading:', currentReading);
-  console.log('Debug - differential:', currentReading - squaringZero);
-  console.log('Debug - travelDistance:', travelDistance);
+  console.log('Debug - currentPosition:', currentPosition);
   console.log('Debug - liveSquaringOrthogonality:', liveSquaringOrthogonality);
   
-  const liveOrthogonality = adjustmentZero !== null 
-    ? calculateOrthogonality(currentReading - adjustmentZero, parseFloat(travelDistance)) 
+  const liveOrthogonality = adjustmentZero !== null && parseFloat(currentPosition) > 0
+    ? calculateOrthogonality(adjustmentZero, currentReading, parseFloat(currentPosition)) 
     : null;
 
   const renderStepContent = () => {
@@ -264,14 +264,25 @@ export function OrthoDashboard() {
                 <AccordionItem value="item-1">
                   <AccordionTrigger>Test Parameters</AccordionTrigger>
                   <AccordionContent>
-                    <div className="space-y-2">
-                      <Label htmlFor="travelDistance">Travel Distance (mm)</Label>
-                      <Input
-                        id="travelDistance"
-                        type="number"
-                        value={travelDistance}
-                        onChange={(e) => setTravelDistance(e.target.value)}
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="travelDistance">Travel Distance (mm)</Label>
+                        <Input
+                          id="travelDistance"
+                          type="number"
+                          value={travelDistance}
+                          onChange={(e) => setTravelDistance(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="currentPosition">Current Carriage Position (mm)</Label>
+                        <Input
+                          id="currentPosition"
+                          type="number"
+                          value={currentPosition}
+                          onChange={(e) => setCurrentPosition(e.target.value)}
+                        />
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
