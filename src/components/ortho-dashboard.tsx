@@ -264,25 +264,14 @@ export function OrthoDashboard() {
                 <AccordionItem value="item-1">
                   <AccordionTrigger>Test Parameters</AccordionTrigger>
                   <AccordionContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="travelDistance">Travel Distance (mm)</Label>
-                        <Input
-                          id="travelDistance"
-                          type="number"
-                          value={travelDistance}
-                          onChange={(e) => setTravelDistance(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="currentPosition">Current Carriage Position (mm)</Label>
-                        <Input
-                          id="currentPosition"
-                          type="number"
-                          value={currentPosition}
-                          onChange={(e) => setCurrentPosition(e.target.value)}
-                        />
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="travelDistance">Travel Distance (mm)</Label>
+                      <Input
+                        id="travelDistance"
+                        type="number"
+                        value={travelDistance}
+                        onChange={(e) => setTravelDistance(e.target.value)}
+                      />
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -412,6 +401,25 @@ export function OrthoDashboard() {
                        }}
                      />
 
+                     <Card>
+                       <CardHeader>
+                         <CardTitle as="h3" className="text-base">Carriage Position</CardTitle>
+                         <CardDescription className="text-xs">Enter your current carriage position for live angle calculation.</CardDescription>
+                       </CardHeader>
+                       <CardContent>
+                         <div className="space-y-2">
+                           <Label htmlFor="currentPosition">Current Position (mm)</Label>
+                           <Input
+                             id="currentPosition"
+                             type="number"
+                             value={currentPosition}
+                             onChange={(e) => setCurrentPosition(e.target.value)}
+                             placeholder="0"
+                           />
+                         </div>
+                       </CardContent>
+                     </Card>
+
                      {isSimulation && squaringZero !== null && (
                         <Card>
                         <CardHeader>
@@ -515,6 +523,25 @@ export function OrthoDashboard() {
                         }
                     }}
                 />
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle as="h3" className="text-base">Carriage Position</CardTitle>
+                    <CardDescription className="text-xs">Enter your current carriage position for live angle calculation.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <Label htmlFor="currentPosition">Current Position (mm)</Label>
+                      <Input
+                        id="currentPosition"
+                        type="number"
+                        value={currentPosition}
+                        onChange={(e) => setCurrentPosition(e.target.value)}
+                        placeholder="0"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
                 
                 {isSimulation && adjustmentZero !== null && (
                     <Card>
