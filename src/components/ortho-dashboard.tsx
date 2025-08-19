@@ -230,21 +230,18 @@ export function OrthoDashboard() {
       )
     : null;
   
-  // Use Phase 1 (initial slope) for squaring step
-  const liveSquaringOrthogonality = twoPhaseResults?.initialSlope || null;
-  
-  // Use Phase 2 (A-B differential) for adjustment step - ALWAYS calculate from current A-B reading
+  // Use Phase 2 (A-B differential) for both squaring and adjustment steps - ALWAYS real-time
+  const liveSquaringOrthogonality = calculateSlopeFromDifferential(currentReading, parseFloat(probeSpacing));
   const liveOrthogonality = calculateSlopeFromDifferential(currentReading, parseFloat(probeSpacing));
   
   // Debug logging
-  console.log('Debug - phase1ZeroReading:', phase1ZeroReading);
-  console.log('Debug - phase1ProbeAReading:', phase1ProbeAReading);
-  console.log('Debug - currentPosition:', currentPosition);
-  console.log('Debug - probeSpacing:', probeSpacing);
-  console.log('Debug - currentReading (A-B differential):', currentReading);
-  console.log('Debug - twoPhaseResults:', twoPhaseResults);
-  console.log('Debug - liveSquaringOrthogonality:', liveSquaringOrthogonality);
-  console.log('Debug - liveOrthogonality:', liveOrthogonality);
+  console.log('🔍 === LIVE ADJUSTMENT DEBUG ===');
+  console.log('🔍 currentReading (A-B differential):', currentReading);
+  console.log('🔍 probeSpacing:', probeSpacing, 'parsed:', parseFloat(probeSpacing));
+  console.log('🔍 Raw calculation: slope =', currentReading, '/', parseFloat(probeSpacing), '=', currentReading / parseFloat(probeSpacing), 'μm/mm');
+  console.log('🔍 liveOrthogonality result:', liveOrthogonality);
+  console.log('🔍 liveOrthogonality?.value:', liveOrthogonality?.value);
+  console.log('🔍 === END DEBUG ===');
 
   const renderStepContent = () => {
     const distance = parseFloat(travelDistance) || 0;
@@ -774,8 +771,9 @@ function AdjustmentBar({
   spec: number,
   showSpecMessage?: boolean
 }) {
-  console.log('AdjustmentBar - result:', result);
-  console.log('AdjustmentBar - spec:', spec);
+  console.log('🎯 AdjustmentBar - result:', result);
+  console.log('🎯 AdjustmentBar - result?.value:', result?.value);
+  console.log('🎯 AdjustmentBar - spec:', spec);
   
   if (!result) {
     console.log('AdjustmentBar - returning null because result is falsy');
