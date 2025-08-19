@@ -42,7 +42,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { calculateOrthogonality } from "@/lib/calculations";
+import { calculateOrthogonality, calculateSlopeFromDifferential, calculateTwoPhaseOrthogonality } from "@/lib/calculations";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "./icons/logo";
 import { Progress } from "@/components/ui/progress";
@@ -98,6 +98,8 @@ export function OrthoDashboard() {
   const [squaringZero, setSquaringZero] = useState<number | null>(null);
   const [squaringResult, setSquaringResult] = useState<OrthogonalityResult>(null);
   const [adjustmentZero, setAdjustmentZero] = useState<number | null>(null);
+  const [phase1ProbeAReading, setPhase1ProbeAReading] = useState<number | null>(null);
+  const [phase1ZeroReading, setPhase1ZeroReading] = useState<number | null>(null);
   const [reportData, setReportData] = useState<ReportData>({
     technician: "Andrew T. Jung",
     axis1Serial: "643237-1-1-X",
@@ -122,6 +124,9 @@ export function OrthoDashboard() {
     setAdjustmentZero(null);
     setSquaringZero(null);
     setSquaringResult(null);
+    setPhase1ProbeAReading(null);
+    setPhase1ZeroReading(null);
+    setCurrentPosition("0");
     if(isConnected) {
       disconnect();
     }
@@ -210,23 +215,31 @@ export function OrthoDashboard() {
 
   const handlePrint = () => window.print();
   
-  const squaringLiveReading = squaringZero !== null ? currentReading - squaringZero : currentReading;
-  const adjustmentLiveReading = adjustmentZero !== null ? currentReading - adjustmentZero : currentReading;
+
   
-  // Updated to use slope-based calculation for live feedback
-  const liveSquaringOrthogonality = squaringZero !== null && parseFloat(currentPosition) > 0
-    ? calculateOrthogonality(squaringZero, currentReading, parseFloat(currentPosition)) 
+  // Two-phase approach calculations
+  const twoPhaseResults = (phase1ZeroReading !== null && phase1ProbeAReading !== null && parseFloat(currentPosition) > 0)
+    ? calculateTwoPhaseOrthogonality(
+        phase1ZeroReading,
+        phase1ProbeAReading, 
+        parseFloat(currentPosition),
+        currentReading // A-B differential
+      )
     : null;
+  
+  // Use Phase 1 (initial slope) for squaring step
+  const liveSquaringOrthogonality = twoPhaseResults?.initialSlope || null;
+  
+  // Use Phase 2 (A-B differential) for adjustment step  
+  const liveOrthogonality = twoPhaseResults?.adjustedSlope || calculateSlopeFromDifferential(currentReading);
   
   // Debug logging
-  console.log('Debug - squaringZero:', squaringZero);
-  console.log('Debug - currentReading:', currentReading);
+  console.log('Debug - phase1ZeroReading:', phase1ZeroReading);
+  console.log('Debug - phase1ProbeAReading:', phase1ProbeAReading);
   console.log('Debug - currentPosition:', currentPosition);
+  console.log('Debug - currentReading (A-B differential):', currentReading);
+  console.log('Debug - twoPhaseResults:', twoPhaseResults);
   console.log('Debug - liveSquaringOrthogonality:', liveSquaringOrthogonality);
-  
-  const liveOrthogonality = adjustmentZero !== null && parseFloat(currentPosition) > 0
-    ? calculateOrthogonality(adjustmentZero, currentReading, parseFloat(currentPosition)) 
-    : null;
 
   const renderStepContent = () => {
     const distance = parseFloat(travelDistance) || 0;
@@ -377,38 +390,38 @@ export function OrthoDashboard() {
         );
 
       case "squaring": {
-        const inSpec = liveSquaringOrthogonality !== null && liveSquaringOrthogonality.unit === 'arcsec' && Math.abs(liveSquaringOrthogonality.value) <= SPEC_ARCSECONDS;
+        const inSpec = liveSquaringOrthogonality !== null && liveSquaringOrthogonality.unit === 'arcsec' && Math.abs(liveSquaringOrthogonality.value) <= 1;
         
         return (
             <Card>
                 <CardHeader>
-                    <CardTitle>Step 2: Squaring Artifact to Reference Axis</CardTitle>
+                    <CardTitle>Step 2: Initial Slope Measurement</CardTitle>
                     <CardDescription>
-                        Zero the differential reading at one end of travel, then move to the other end. 
-                        Use the live arcsecond feedback to adjust the artifact face until it shows 0 arcseconds.
-                        This ensures the face is perfectly square to the axis of motion.
+                        Phase 1: Zero Probe A at one end, move carriage to other end, record position and Probe A reading to establish initial slope.
+                        Phase 2: Set indicator to A-B differential mode for real-time adjustment feedback.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                     <LiveReadingCard 
-                       reading={squaringLiveReading} 
-                       isConnected={isConnected} 
-                       onZero={() => {
-                         setSquaringZero(currentReading);
-                         if (isSimulation && setSimulationReading) {
-                            setSimulationReading(currentReading);
-                         }
-                       }}
-                     />
-
+                     {/* Phase 1: Probe A + Position */}
                      <Card>
                        <CardHeader>
-                         <CardTitle as="h3" className="text-base">Carriage Position</CardTitle>
-                         <CardDescription className="text-xs">Enter your current carriage position for live angle calculation.</CardDescription>
+                         <CardTitle as="h3" className="text-base">Phase 1: Initial Slope (Probe A)</CardTitle>
+                         <CardDescription className="text-xs">Zero Probe A at one end, then move carriage and record position.</CardDescription>
                        </CardHeader>
-                       <CardContent>
+                       <CardContent className="space-y-3">
+                         <LiveReadingCard 
+                           reading={currentReading} 
+                           isConnected={isConnected} 
+                           label="Probe A Reading"
+                           onZero={() => {
+                             setPhase1ZeroReading(currentReading);
+                             if (isSimulation && setSimulationReading) {
+                               setSimulationReading(currentReading);
+                             }
+                           }}
+                         />
                          <div className="space-y-2">
-                           <Label htmlFor="currentPosition">Current Position (mm)</Label>
+                           <Label htmlFor="currentPosition">Current Carriage Position (mm)</Label>
                            <Input
                              id="currentPosition"
                              type="number"
@@ -417,19 +430,42 @@ export function OrthoDashboard() {
                              placeholder="0"
                            />
                          </div>
+                         <Button 
+                           onClick={() => setPhase1ProbeAReading(currentReading)}
+                           disabled={!isConnected || parseFloat(currentPosition) <= 0}
+                           className="w-full"
+                         >
+                           Record Probe A Reading at {currentPosition}mm
+                         </Button>
+                       </CardContent>
+                     </Card>
+                     
+                     {/* Phase 2: A-B Differential */}
+                     <Card>
+                       <CardHeader>
+                         <CardTitle as="h3" className="text-base">Phase 2: Live Adjustment (A-B Differential)</CardTitle>
+                         <CardDescription className="text-xs">Set indicator to A-B mode with probes 30mm apart for real-time feedback.</CardDescription>
+                       </CardHeader>
+                       <CardContent>
+                         <LiveReadingCard 
+                           reading={currentReading} 
+                           isConnected={isConnected} 
+                           label="A-B Differential"
+                         />
                        </CardContent>
                      </Card>
 
-                     {isSimulation && squaringZero !== null && (
+
+                     {isSimulation && (
                         <Card>
                         <CardHeader>
-                            <CardTitle as="h3" className="text-base">Adjustment Simulator</CardTitle>
-                            <CardDescription className="text-xs">Use this slider to simulate turning the adjustment screw.</CardDescription>
+                            <CardTitle as="h3" className="text-base">Differential Simulator</CardTitle>
+                            <CardDescription className="text-xs">Use this slider to simulate the A-B differential reading.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Slider
-                                value={[squaringLiveReading]}
-                                onValueChange={([val]) => setSimulationReading && setSimulationReading(val + squaringZero)}
+                                value={[currentReading]}
+                                onValueChange={([val]) => setSimulationReading && setSimulationReading(val)}
                                 min={-300}
                                 max={300}
                                 step={1}
@@ -438,17 +474,11 @@ export function OrthoDashboard() {
                         </Card>
                     )}
 
-                    {squaringZero !== null ? (
-                        <AdjustmentBar 
-                            result={liveSquaringOrthogonality} 
-                            spec={SPEC_ARCSECONDS}
-                            showSpecMessage={false}
-                        />
-                    ) : (
-                        <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
-                            <p className="text-muted-foreground">Please zero the indicator to begin live squaring adjustment.</p>
-                        </Card>
-                    )}
+                    <AdjustmentBar 
+                        result={liveSquaringOrthogonality} 
+                        spec={1}
+                        showSpecMessage={true}
+                    />
 
                 </CardContent>
                 <CardFooter className="justify-between">
@@ -502,38 +532,33 @@ export function OrthoDashboard() {
         );
       }
       case "adjustment": {
-        const inSpec = liveOrthogonality !== null && liveOrthogonality.unit === 'arcsec' && Math.abs(liveOrthogonality.value) <= SPEC_ARCSECONDS;
+        const inSpec = liveOrthogonality !== null && liveOrthogonality.unit === 'arcsec' && Math.abs(liveOrthogonality.value) <= 1;
         
         return (
           <Card>
             <CardHeader>
               <CardTitle>Step 4: Mechanical Adjustment</CardTitle>
               <CardDescription>
-                Zero the indicator at one end, then move to the other. Use the live feedback to adjust the axis until it is within the {SPEC_ARCSECONDS} arcsecond specification.
+                Using the initial slope from Phase 1 and A-B differential feedback, adjust the axis until it is within ±1 arcsecond specification.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <LiveReadingCard 
-                    reading={adjustmentLiveReading}
+                    reading={currentReading}
                     isConnected={isConnected} 
-                    onZero={() => {
-                        setAdjustmentZero(currentReading)
-                        if (isSimulation && setSimulationReading) {
-                        setSimulationReading(currentReading);
-                        }
-                    }}
+                    label="A-B Differential"
                 />
                 
                 <Card>
                   <CardHeader>
                     <CardTitle as="h3" className="text-base">Carriage Position</CardTitle>
-                    <CardDescription className="text-xs">Enter your current carriage position for live angle calculation.</CardDescription>
+                    <CardDescription className="text-xs">Current position for two-phase calculation.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      <Label htmlFor="currentPosition">Current Position (mm)</Label>
+                      <Label htmlFor="currentPositionAdj">Current Position (mm)</Label>
                       <Input
-                        id="currentPosition"
+                        id="currentPositionAdj"
                         type="number"
                         value={currentPosition}
                         onChange={(e) => setCurrentPosition(e.target.value)}
@@ -543,16 +568,16 @@ export function OrthoDashboard() {
                   </CardContent>
                 </Card>
                 
-                {isSimulation && adjustmentZero !== null && (
+                {isSimulation && (
                     <Card>
                         <CardHeader>
-                            <CardTitle as="h3" className="text-base">Adjustment Simulator</CardTitle>
-                            <CardDescription className="text-xs">Use this slider to simulate turning the adjustment screw.</CardDescription>
+                            <CardTitle as="h3" className="text-base">Differential Simulator</CardTitle>
+                            <CardDescription className="text-xs">Use this slider to simulate the A-B differential reading.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Slider
-                                value={[adjustmentLiveReading]}
-                                onValueChange={([val]) => setSimulationReading && setSimulationReading(val + adjustmentZero)}
+                                value={[currentReading]}
+                                onValueChange={([val]) => setSimulationReading && setSimulationReading(val)}
                                 min={-300}
                                 max={300}
                                 step={1}
@@ -562,16 +587,10 @@ export function OrthoDashboard() {
                 )}
 
 
-                {adjustmentZero !== null ? (
-                    <AdjustmentBar 
+                <AdjustmentBar 
                     result={liveOrthogonality} 
-                    spec={SPEC_ARCSECONDS} 
-                    />
-                ) : (
-                    <Card className="flex items-center justify-center h-48 text-center bg-muted/50">
-                        <p className="text-muted-foreground">Please zero the indicator to begin live adjustment.</p>
-                    </Card>
-                )}
+                    spec={1} 
+                />
             </CardContent>
             <CardFooter className="justify-between">
               <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
@@ -701,16 +720,18 @@ function LiveReadingCard({
     reading, 
     isConnected, 
     onZero,
+    label = "Live Reading",
 }: {
     reading: number, 
     isConnected: boolean, 
     onZero?: () => void,
+    label?: string,
 }) {
 
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle as="h3" className="text-lg font-medium">Live Reading</CardTitle>
+                <CardTitle as="h3" className="text-lg font-medium">{label}</CardTitle>
                 <Zap className={cn("w-6 h-6 transition-colors", isConnected ? "text-accent" : "text-muted-foreground")} />
             </CardHeader>
             <CardContent className="flex items-center justify-center h-24 text-center">

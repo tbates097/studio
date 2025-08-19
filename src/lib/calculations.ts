@@ -83,3 +83,70 @@ export function calculateOrthogonalityFromSamples(
     unit: "arcsec",
   };
 }
+
+/**
+ * Calculates the slope angle from A-B differential measurement across two probes.
+ * 
+ * This uses the direct differential reading between two probes spaced apart on the artifact face
+ * to calculate the real-time slope angle, regardless of absolute probe positions.
+ * 
+ * @param differentialReading The A-B differential reading (in microns).
+ * @param probeSpacing The spacing between probe A and probe B (in mm). Default is 30mm.
+ * @returns An object containing the calculated angle in arcseconds, or null if invalid.
+ */
+export function calculateSlopeFromDifferential(
+  differentialReading: number,
+  probeSpacing: number = 30
+): { value: number; unit: "arcsec" } | null {
+  if (probeSpacing <= 0) {
+    return null;
+  }
+
+  // Calculate slope directly from differential
+  const slope = differentialReading / probeSpacing; // μm/mm
+  
+  // Convert slope to angle in radians
+  const angleInRadians = slope * 1e-3;
+  
+  // Convert radians to arcseconds
+  const angleInArcseconds = angleInRadians * 206265;
+  
+  return {
+    value: angleInArcseconds,
+    unit: "arcsec",
+  };
+}
+
+/**
+ * Two-phase orthogonality calculation:
+ * Phase 1: Establish initial slope using Probe A + carriage position
+ * Phase 2: Use A-B differential for real-time adjustment feedback
+ * 
+ * @param phase1ZeroReading Probe A reading when zeroed (Phase 1)
+ * @param phase1CurrentReading Current Probe A reading (Phase 1) 
+ * @param carriagePosition Current carriage position in mm
+ * @param differentialReading Current A-B differential reading (Phase 2)
+ * @param probeSpacing Distance between probes A and B in mm (default 30mm)
+ * @returns Object with initial slope and current adjusted slope in arcseconds
+ */
+export function calculateTwoPhaseOrthogonality(
+  phase1ZeroReading: number,
+  phase1CurrentReading: number,
+  carriagePosition: number,
+  differentialReading: number,
+  probeSpacing: number = 30
+): { 
+  initialSlope: { value: number; unit: "arcsec" } | null,
+  adjustedSlope: { value: number; unit: "arcsec" } | null 
+} {
+  // Phase 1: Calculate initial slope from Probe A + position
+  const initialSlope = calculateOrthogonality(phase1ZeroReading, phase1CurrentReading, carriagePosition);
+  
+  // Phase 2: Calculate real-time adjustment from A-B differential
+  const adjustedSlope = calculateSlopeFromDifferential(differentialReading, probeSpacing);
+  
+  return {
+    initialSlope,
+    adjustedSlope
+  };
+}
