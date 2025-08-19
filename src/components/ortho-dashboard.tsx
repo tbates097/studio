@@ -83,6 +83,7 @@ export function OrthoDashboard() {
   const [step, setStep] = useState<Step>("setup");
   const [travelDistance, setTravelDistance] = useState("100");
   const [currentPosition, setCurrentPosition] = useState("0");
+  const [probeSpacing, setProbeSpacing] = useState("30");
   const { 
     reading: currentReading, 
     connect, 
@@ -127,6 +128,7 @@ export function OrthoDashboard() {
     setPhase1ProbeAReading(null);
     setPhase1ZeroReading(null);
     setCurrentPosition("0");
+    setProbeSpacing("30");
     if(isConnected) {
       disconnect();
     }
@@ -223,23 +225,26 @@ export function OrthoDashboard() {
         phase1ZeroReading,
         phase1ProbeAReading, 
         parseFloat(currentPosition),
-        currentReading // A-B differential
+        currentReading, // A-B differential
+        parseFloat(probeSpacing) // Use user-specified probe spacing
       )
     : null;
   
   // Use Phase 1 (initial slope) for squaring step
   const liveSquaringOrthogonality = twoPhaseResults?.initialSlope || null;
   
-  // Use Phase 2 (A-B differential) for adjustment step  
-  const liveOrthogonality = twoPhaseResults?.adjustedSlope || calculateSlopeFromDifferential(currentReading);
+  // Use Phase 2 (A-B differential) for adjustment step - ALWAYS calculate from current A-B reading
+  const liveOrthogonality = calculateSlopeFromDifferential(currentReading, parseFloat(probeSpacing));
   
   // Debug logging
   console.log('Debug - phase1ZeroReading:', phase1ZeroReading);
   console.log('Debug - phase1ProbeAReading:', phase1ProbeAReading);
   console.log('Debug - currentPosition:', currentPosition);
+  console.log('Debug - probeSpacing:', probeSpacing);
   console.log('Debug - currentReading (A-B differential):', currentReading);
   console.log('Debug - twoPhaseResults:', twoPhaseResults);
   console.log('Debug - liveSquaringOrthogonality:', liveSquaringOrthogonality);
+  console.log('Debug - liveOrthogonality:', liveOrthogonality);
 
   const renderStepContent = () => {
     const distance = parseFloat(travelDistance) || 0;
@@ -284,6 +289,15 @@ export function OrthoDashboard() {
                         type="number"
                         value={travelDistance}
                         onChange={(e) => setTravelDistance(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="probeSpacing">Probe A-B Spacing (mm)</Label>
+                      <Input
+                        id="probeSpacing"
+                        type="number"
+                        value={probeSpacing}
+                        onChange={(e) => setProbeSpacing(e.target.value)}
                       />
                     </div>
                   </AccordionContent>
@@ -444,7 +458,7 @@ export function OrthoDashboard() {
                      <Card>
                        <CardHeader>
                          <CardTitle as="h3" className="text-base">Phase 2: Live Adjustment (A-B Differential)</CardTitle>
-                         <CardDescription className="text-xs">Set indicator to A-B mode with probes 30mm apart for real-time feedback.</CardDescription>
+                         <CardDescription className="text-xs">Set indicator to A-B mode with probes {probeSpacing}mm apart for real-time feedback.</CardDescription>
                        </CardHeader>
                        <CardContent>
                          <LiveReadingCard 
