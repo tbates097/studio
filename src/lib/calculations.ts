@@ -98,18 +98,25 @@ export function calculateSlopeFromDifferential(
   differentialReading: number,
   probeSpacing: number = 30
 ): { value: number; unit: "arcsec" } | null {
+  console.log('🔍 calculateSlopeFromDifferential inputs:');
+  console.log('🔍 differentialReading:', differentialReading);
+  console.log('🔍 probeSpacing:', probeSpacing);
+  
   if (probeSpacing <= 0) {
     return null;
   }
 
   // Calculate slope directly from differential
   const slope = differentialReading / probeSpacing; // μm/mm
+  console.log('🔍 slope (μm/mm):', slope);
   
   // Convert slope to angle in radians
   const angleInRadians = slope * 1e-3;
+  console.log('🔍 angleInRadians:', angleInRadians);
   
   // Convert radians to arcseconds
   const angleInArcseconds = angleInRadians * 206265;
+  console.log('🔍 angleInArcseconds:', angleInArcseconds);
   
   return {
     value: angleInArcseconds,
