@@ -419,7 +419,9 @@ export function OrthoDashboard() {
 
   // Update confidence when calibration history changes
   useEffect(() => {
+    console.log('Calibration history changed:', calibrationHistory);
     const newConfidence = calculateConfidence(calibrationHistory);
+    console.log('New confidence:', newConfidence);
     setPivotConfidence(newConfidence);
   }, [calibrationHistory, calculateConfidence]);
 
@@ -767,7 +769,12 @@ export function OrthoDashboard() {
                                     A2_test: A2_test,
                                     theta_after_test: result.theta_after_test
                                   };
-                                  setCalibrationHistory(prev => [...prev, newCalibration]);
+                                  console.log('Adding calibration to history:', newCalibration);
+                                  setCalibrationHistory(prev => {
+                                    const newHistory = [...prev, newCalibration];
+                                    console.log('New calibration history:', newHistory);
+                                    return newHistory;
+                                  });
                                 }
                               }
                             }, 300);
@@ -789,6 +796,13 @@ export function OrthoDashboard() {
                       </div>
                     )}
                     
+                    {/* Debug Info */}
+                    <div className="p-2 border rounded bg-gray-50 text-xs">
+                      <p>Debug - History Count: {calibrationHistory.length}</p>
+                      <p>Debug - Confidence Level: {pivotConfidence.level}</p>
+                      <p>Debug - Message: {pivotConfidence.message}</p>
+                    </div>
+                    
                     {/* Confidence Display */}
                     {pivotConfidence.level !== "unknown" && (
                       <div className={`p-3 border rounded space-y-1 ${
@@ -805,33 +819,14 @@ export function OrthoDashboard() {
                       </div>
                     )}
                     
-                    <div className="flex gap-2">
-                      {leverArmResult && currentPhase >= 2 && (
-                        <Button
-                          onClick={() => {
-                            setA2_test(null);
-                            setA1_test(null);
-                            setLeverArmResult(null);
-                            setTargetResult(null);
-                            setTargetProgress(null);
-                            // Keep calibration history for confidence tracking
-                          }}
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                        >
-                          New Calibration
-                        </Button>
-                      )}
-                      {leverArmResult && currentPhase === 2 && (
-                        <Button
-                          onClick={() => setCurrentPhase(3)}
-                          className="flex-1"
-                        >
-                          Next Phase →
-                        </Button>
-                      )}
-                    </div>
+                    {leverArmResult && currentPhase === 2 && (
+                      <Button
+                        onClick={() => setCurrentPhase(3)}
+                        className="w-full"
+                      >
+                        Next Phase →
+                      </Button>
+                    )}
                         </CardContent>
                         </Card>
                     )}
