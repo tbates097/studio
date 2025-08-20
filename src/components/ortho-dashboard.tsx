@@ -106,6 +106,7 @@ export function OrthoDashboard() {
   const [liveProbeAReading, setLiveProbeAReading] = useState<number | null>(null);
   const [liveProbeBReading, setLiveProbeBReading] = useState<number | null>(null);
   const [isLiveReadingActive, setIsLiveReadingActive] = useState(false);
+  const [lastReadingPairTimestamp, setLastReadingPairTimestamp] = useState<number>(0);
   const [reportData, setReportData] = useState<ReportData>({
     technician: "Andrew T. Jung",
     axis1Serial: "643237-1-1-X",
@@ -131,6 +132,7 @@ export function OrthoDashboard() {
     
     setIsLiveReadingActive(true);
     let mode: 'A' | 'B' = 'A';
+    let tempProbeAReading: number | null = null;
     
     switchingIntervalRef.current = setInterval(() => {
       if (mode === 'A') {
@@ -138,7 +140,8 @@ export function OrthoDashboard() {
         setCurrentProbeMode('A');
         // Capture reading after small delay
         setTimeout(() => {
-          setLiveProbeAReading(currentReadingRef.current);
+          tempProbeAReading = currentReadingRef.current;
+          setLiveProbeAReading(tempProbeAReading);
         }, 50);
         mode = 'B';
       } else {
@@ -146,7 +149,19 @@ export function OrthoDashboard() {
         setCurrentProbeMode('B');
         // Capture reading after small delay
         setTimeout(() => {
-          setLiveProbeBReading(currentReadingRef.current);
+          const tempProbeBReading = currentReadingRef.current;
+          setLiveProbeBReading(tempProbeBReading);
+          
+          // Only update the pair when we have both fresh readings
+          if (tempProbeAReading !== null) {
+            const timestamp = Date.now();
+            setLastReadingPairTimestamp(timestamp);
+            console.log('🔄 Fresh reading pair captured:', {
+              probeA: tempProbeAReading,
+              probeB: tempProbeBReading,
+              timestamp: timestamp
+            });
+          }
         }, 50);
         mode = 'A';
       }
@@ -194,6 +209,7 @@ export function OrthoDashboard() {
     setCurrentProbeBReading(null);
     setLiveProbeAReading(null);
     setLiveProbeBReading(null);
+    setStableLiveOrthogonality(null);
     stopRapidSwitching();
     setCurrentPosition("0");
     setProbeSpacing("30");
@@ -298,14 +314,32 @@ export function OrthoDashboard() {
       )
     : null;
   
-  // Use live readings for real-time slope calculation
-  const liveSquaringOrthogonality = (liveProbeAReading !== null && liveProbeBReading !== null && parseFloat(currentPosition) > 0)
-    ? calculateSlopeFromTwoProbes(liveProbeAReading, parseFloat(currentPosition), liveProbeBReading, parseFloat(currentPosition) + parseFloat(probeSpacing))
-    : null;
+  // Stable live readings (updated less frequently to avoid rapid cycling)
+  const [stableLiveOrthogonality, setStableLiveOrthogonality] = useState<{ value: number; unit: "arcsec" } | null>(null);
+  
+  // Update calculation every 500ms instead of every render
+  useEffect(() => {
+    if (!isLiveReadingActive) return;
     
-  const liveOrthogonality = (liveProbeAReading !== null && liveProbeBReading !== null && parseFloat(currentPosition) > 0)
-    ? calculateSlopeFromTwoProbes(liveProbeAReading, parseFloat(currentPosition), liveProbeBReading, parseFloat(currentPosition) + parseFloat(probeSpacing))
-    : null;
+    const interval = setInterval(() => {
+      if (liveProbeAReading !== null && liveProbeBReading !== null && parseFloat(currentPosition) > 0) {
+        const result = calculateSlopeFromTwoProbes(
+          liveProbeAReading, 
+          parseFloat(currentPosition), 
+          liveProbeBReading, 
+          parseFloat(currentPosition) + parseFloat(probeSpacing)
+        );
+        setStableLiveOrthogonality(result);
+        console.log('🔄 Updated stable calculation:', result, 'from A:', liveProbeAReading, 'B:', liveProbeBReading);
+      }
+    }, 500); // Update every 500ms
+    
+    return () => clearInterval(interval);
+  }, [isLiveReadingActive, liveProbeAReading, liveProbeBReading, currentPosition, probeSpacing]);
+  
+  // Use stable calculation for display
+  const liveSquaringOrthogonality = stableLiveOrthogonality;
+  const liveOrthogonality = stableLiveOrthogonality;
   
   // Debug logging
   console.log('🔍 === LIVE ADJUSTMENT DEBUG ===');
