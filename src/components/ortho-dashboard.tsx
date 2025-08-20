@@ -41,7 +41,16 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { calculateOrthogonality, calculateSlopeFromDifferential, calculateTwoPhaseOrthogonality, calculateSlopeFromTwoProbes } from "@/lib/calculations";
+import { 
+  calculateOrthogonality, 
+  calculateSlopeFromDifferential, 
+  calculateTwoPhaseOrthogonality, 
+  calculateSlopeFromTwoProbes,
+  calculateInitialAngle,
+  calculateLeverArm,
+  calculateTargetReading,
+  checkTargetProgress
+} from "@/lib/calculations";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "./icons/logo";
 import { Progress } from "@/components/ui/progress";
@@ -80,7 +89,7 @@ const SPEC_ARCSECONDS = 5;
 
 export function OrthoDashboard() {
   const [step, setStep] = useState<Step>("setup");
-  const [travelDistance, setTravelDistance] = useState("100");
+  const [measurementDistance, setMeasurementDistance] = useState("100");
   const [currentPosition, setCurrentPosition] = useState("0");
   const [probeSpacing, setProbeSpacing] = useState("30");
   const { 
@@ -107,6 +116,24 @@ export function OrthoDashboard() {
   const [liveProbeBReading, setLiveProbeBReading] = useState<number | null>(null);
   const [isLiveReadingActive, setIsLiveReadingActive] = useState(false);
   const [lastReadingPairTimestamp, setLastReadingPairTimestamp] = useState<number>(0);
+  
+  // Three-Phase Workflow State
+  const [currentPhase, setCurrentPhase] = useState<1 | 2 | 3>(1);
+  
+  // Phase 1: Measure Initial Angular Error
+  const [A1_initial, setA1_initial] = useState<number | null>(null);
+  const [A2_initial, setA2_initial] = useState<number | null>(null);
+  const [theta_initial, setTheta_initial] = useState<{ value: number; unit: "arcsec" } | null>(null);
+  
+  // Phase 2: Calibrate Adjustment (Find Pivot)
+  const [A1_test, setA1_test] = useState<number | null>(null);
+  const [A2_test, setA2_test] = useState<number | null>(null);
+  const [leverArmResult, setLeverArmResult] = useState<{ leverArm: number; theta_initial: number; theta_after_test: number; delta_theta: number; unit: "mm" } | null>(null);
+  
+  // Phase 3: Execute Final Correction
+  const [targetResult, setTargetResult] = useState<{ target: number; correction: number; unit: "μm" } | null>(null);
+  const [targetProgress, setTargetProgress] = useState<{ isWithinTolerance: boolean; error: number; progress: number; unit: "μm" } | null>(null);
+
   const [reportData, setReportData] = useState<ReportData>({
     technician: "Andrew T. Jung",
     axis1Serial: "643237-1-1-X",
@@ -213,6 +240,18 @@ export function OrthoDashboard() {
     stopRapidSwitching();
     setCurrentPosition("0");
     setProbeSpacing("30");
+    
+    // Reset three-phase workflow state
+    setCurrentPhase(1);
+    setA1_initial(null);
+    setA2_initial(null);
+    setTheta_initial(null);
+    setA1_test(null);
+    setA2_test(null);
+    setLeverArmResult(null);
+    setTargetResult(null);
+    setTargetProgress(null);
+    
     if(isConnected) {
       disconnect();
     }
@@ -225,7 +264,7 @@ export function OrthoDashboard() {
 
   const handleNextStep = () => {
     if (step === "setup") {
-        const distance = parseFloat(travelDistance);
+        const distance = parseFloat(measurementDistance);
         if (isNaN(distance) || distance <= 0) {
             toast({
                 title: "Invalid Distance",
@@ -274,7 +313,7 @@ export function OrthoDashboard() {
   };
 
   const recordSquaringMeasurement = () => {
-    const distance = parseFloat(travelDistance);
+    const distance = parseFloat(measurementDistance);
     const numMeasurements = distance > 200 ? Math.floor(distance / 100) + 1 : 2;
     
     if(squaringMeasurements.length < numMeasurements) {
@@ -287,7 +326,7 @@ export function OrthoDashboard() {
   };
 
   const recordMeasurement = () => {
-    const distance = parseFloat(travelDistance);
+    const distance = parseFloat(measurementDistance);
     const numMeasurements = distance > 200 ? Math.floor(distance / 100) + 1 : 2;
     
     if(measurements.length < numMeasurements) {
@@ -335,8 +374,18 @@ export function OrthoDashboard() {
     }, 500); // Update every 500ms
     
     return () => clearInterval(interval);
-  }, [isLiveReadingActive, liveProbeAReading, liveProbeBReading, currentPosition, probeSpacing]);
-  
+    }, [isLiveReadingActive, liveProbeAReading, liveProbeBReading, currentPosition, probeSpacing]);
+
+  // Update target progress in Phase 3
+  useEffect(() => {
+    if (currentPhase === 3 && targetResult && currentReading !== null) {
+      const progress = checkTargetProgress(currentReading, targetResult.target);
+      setTargetProgress(progress);
+    } else {
+      setTargetProgress(null);
+    }
+  }, [currentPhase, targetResult, currentReading]);
+
   // Use stable calculation for display
   const liveSquaringOrthogonality = stableLiveOrthogonality;
   const liveOrthogonality = stableLiveOrthogonality;
@@ -351,7 +400,7 @@ export function OrthoDashboard() {
   console.log('🔍 === END DEBUG ===');
 
   const renderStepContent = () => {
-    const distance = parseFloat(travelDistance) || 0;
+    const distance = parseFloat(measurementDistance) || 0;
     const numMeasurements = distance > 200 ? Math.floor(distance / 100) + 1 : 2;
 
     switch (step) {
@@ -389,12 +438,12 @@ export function OrthoDashboard() {
                   <AccordionTrigger>Test Parameters</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-2">
-                      <Label htmlFor="travelDistance">Travel Distance (mm)</Label>
+                      <Label htmlFor="measurementDistance">Measurement Distance (mm)</Label>
                       <Input
-                        id="travelDistance"
+                        id="measurementDistance"
                         type="number"
-                        value={travelDistance}
-                        onChange={(e) => setTravelDistance(e.target.value)}
+                        value={measurementDistance}
+                        onChange={(e) => setMeasurementDistance(e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
@@ -510,225 +559,287 @@ export function OrthoDashboard() {
         );
 
       case "squaring": {
-        const inSpec = liveSquaringOrthogonality !== null && liveSquaringOrthogonality.unit === 'arcsec' && Math.abs(liveSquaringOrthogonality.value) <= 1;
+        const isCompleted = targetProgress?.isWithinTolerance || false;
         
         return (
             <Card>
                 <CardHeader>
-                    <CardTitle>Step 2: Initial Slope Measurement</CardTitle>
+                    <CardTitle>Step 2: Artifact Adjustment (Three-Phase Method)</CardTitle>
                     <CardDescription>
-                        Phase 1: Zero Probe A at one end, move carriage to other end, record position and Probe A reading to establish initial slope.
-                        Phase 2: Set indicator to A-B differential mode for real-time adjustment feedback.
+                        Systematic metrology workflow: Measure initial error → Calibrate adjustment → Execute calculated correction
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                     {/* Top Section: Live Indicator + Mode Selector */}
-                     <Card>
-                       <CardHeader>
-                         <CardTitle as="h3" className="text-base">Current Indicator Reading</CardTitle>
-                         <CardDescription className="text-xs">Live reading from the indicator. Use probe selector to switch modes.</CardDescription>
-                       </CardHeader>
-                       <CardContent className="space-y-3">
-                         <LiveReadingCard 
-                           reading={currentReading} 
-                           isConnected={isConnected} 
-                           label="Live Reading"
-                         />
-                         <div className="space-y-2">
-                           <Label>Probe Mode Selector</Label>
-                           <div className="grid grid-cols-3 gap-2">
-                             <Button 
-                               onClick={() => sendCommand("FNC 1\r")}
-                               variant="outline" 
-                               className="flex flex-col items-center p-3 h-auto"
-                             >
-                               <div className="text-lg font-semibold">A</div>
-                               <div className="text-xs">Probe A</div>
-                             </Button>
-                             <Button 
-                               onClick={() => sendCommand("FNC 3\r")}
-                               variant="outline" 
-                               className="flex flex-col items-center p-3 h-auto"
-                             >
-                               <div className="text-lg font-semibold">B</div>
-                               <div className="text-xs">Probe B</div>
-                             </Button>
-                             <Button 
-                               onClick={() => sendCommand("FNC 6\r")}
-                               variant="outline" 
-                               className="flex flex-col items-center p-3 h-auto"
-                             >
-                               <div className="text-lg font-semibold">A-B</div>
-                               <div className="text-xs">Differential</div>
-                             </Button>
-                           </div>
-                         </div>
-                       </CardContent>
-                     </Card>
-                     
-                     {/* Phase 1: Initial Slope (Simplified) */}
-                     <Card>
-                       <CardHeader>
-                         <CardTitle as="h3" className="text-base">Phase 1: Initial Slope (Probe A)</CardTitle>
-                         <CardDescription className="text-xs">Zero Probe A at one end, then move carriage and record position.</CardDescription>
-                       </CardHeader>
-                       <CardContent className="space-y-3">
-                         <Button 
-                           onClick={() => {
-                             sendCommand("PRZ\r"); // Send zero command to indicator
-                             setPhase1ZeroReading(0); // Set software zero reference
-                             if (isSimulation && setSimulationReading) {
-                               setSimulationReading(0);
-                             }
-                           }}
-                           disabled={!isConnected}
-                           variant="outline"
-                           className="w-full"
-                         >
-                           Zero Indicator
-                         </Button>
-                         <div className="space-y-2">
-                           <Label htmlFor="currentPosition">Current Carriage Position (mm)</Label>
-                           <Input
-                             id="currentPosition"
-                             type="number"
-                             value={currentPosition}
-                             onChange={(e) => setCurrentPosition(e.target.value)}
-                             placeholder="0"
-                           />
-                         </div>
-                         <Button 
-                           onClick={() => {
-                             sendCommand("FNC 1\r"); // Auto-switch to Probe A
-                             setTimeout(() => setPhase1ProbeAReading(currentReading), 100); // Small delay for switching
-                           }}
-                           disabled={!isConnected || parseFloat(currentPosition) <= 0}
-                           className="w-full"
-                         >
-                           Record Probe A Reading at {currentPosition}mm
-                         </Button>
-                         {phase1ProbeAReading !== null && (
-                           <div className="p-3 border rounded bg-green-50 text-center">
-                             <p className="text-sm text-green-700">
-                               Recorded: {phase1ProbeAReading.toFixed(3)} μm at {currentPosition}mm
-                             </p>
-                           </div>
-                         )}
-                       </CardContent>
-                     </Card>
-                     
-                     {/* Phase 2: Two-Probe Slope Calculation */}
-                     <Card>
-                       <CardHeader>
-                         <CardTitle as="h3" className="text-base">Phase 2: Two-Probe Slope Calculation</CardTitle>
-                         <CardDescription className="text-xs">Record both probe readings independently. Buttons auto-switch to correct probe mode.</CardDescription>
-                       </CardHeader>
-                       <CardContent className="space-y-3">
-                         <div className="grid grid-cols-2 gap-3">
-                           <div className="space-y-2">
-                             <Label>Probe A Reading</Label>
-                             <div className="p-3 border rounded bg-muted/50 text-center">
-                               <p className="text-lg font-semibold">
-                                 {currentProbeAReading !== null ? currentProbeAReading.toFixed(3) : "---"} μm
-                               </p>
-                             </div>
-                             <Button 
-                               onClick={() => {
-                                 captureReadingAfterSwitch("FNC 1\r", setCurrentProbeAReading);
-                               }}
-                               disabled={!isConnected}
-                               size="sm"
-                               className="w-full"
-                             >
-                               Record Probe A
-                             </Button>
-                           </div>
-                           <div className="space-y-2">
-                             <Label>Probe B Reading</Label>
-                             <div className="p-3 border rounded bg-muted/50 text-center">
-                               <p className="text-lg font-semibold">
-                                 {currentProbeBReading !== null ? currentProbeBReading.toFixed(3) : "---"} μm
-                               </p>
-                             </div>
-                             <Button 
-                               onClick={() => {
-                                 captureReadingAfterSwitch("FNC 3\r", setCurrentProbeBReading);
-                               }}
-                               disabled={!isConnected}
-                               size="sm"
-                               className="w-full"
-                             >
-                               Record Probe B
-                             </Button>
-                           </div>
-                         </div>
-                         
-                         {/* Live Reading Controls */}
-                         <div className="space-y-2">
-                           <Label>Live Reading System</Label>
-                           <div className="flex gap-2">
-                             <Button 
-                               onClick={startRapidSwitching}
-                               disabled={!isConnected || isLiveReadingActive}
-                               size="sm"
-                               className="flex-1"
-                             >
-                               {isLiveReadingActive ? "Live Reading Active" : "Start Live Reading"}
-                             </Button>
-                             <Button 
-                               onClick={stopRapidSwitching}
-                               disabled={!isLiveReadingActive}
-                               variant="outline"
-                               size="sm"
-                               className="flex-1"
-                             >
-                               Stop Live Reading
-                             </Button>
-                           </div>
-                           {isLiveReadingActive && (
-                             <div className="p-2 border rounded bg-green-50 text-center">
-                               <p className="text-xs text-green-700">
-                                 🔄 Switching between Probe A and B every 200ms (Current: {currentProbeMode})
-                               </p>
-                               <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-                                 <div>A: {liveProbeAReading !== null ? liveProbeAReading.toFixed(3) : "---"} μm</div>
-                                 <div>B: {liveProbeBReading !== null ? liveProbeBReading.toFixed(3) : "---"} μm</div>
-                               </div>
-                             </div>
-                           )}
-                         </div>
-                       </CardContent>
-                     </Card>
-
-                     {isSimulation && (
-                        <Card>
-                        <CardHeader>
-                            <CardTitle as="h3" className="text-base">Differential Simulator</CardTitle>
-                            <CardDescription className="text-xs">Use this slider to simulate the A-B differential reading.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Slider
-                                value={[currentReading]}
-                                onValueChange={([val]) => setSimulationReading && setSimulationReading(val)}
-                                min={-300}
-                                max={300}
-                                step={1}
-                            />
-                        </CardContent>
-                        </Card>
-                    )}
-
-                    <AdjustmentBar 
-                        result={liveSquaringOrthogonality} 
-                        spec={1}
-                        showSpecMessage={true}
+              {/* Live Indicator Reading */}
+              <Card>
+                <CardHeader>
+                  <CardTitle as="h3" className="text-base">Current Indicator Reading</CardTitle>
+                  <CardDescription className="text-xs">Live reading from Probe A</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <LiveReadingCard
+                    reading={currentReading}
+                    isConnected={isConnected}
+                    label="Live Reading"
+                  />
+                  <div className="mt-2 space-y-2">
+                    <Label>Current Position (mm)</Label>
+                    <Input
+                      type="number"
+                      value={currentPosition}
+                      onChange={(e) => setCurrentPosition(e.target.value)}
+                      placeholder="Enter carriage position"
                     />
-
+                  </div>
                 </CardContent>
-                <CardFooter className="justify-between">
+              </Card>
+
+              {/* Phase 1: Measure Initial Angular Error */}
+              <Card>
+                <CardHeader>
+                  <CardTitle as="h3" className="text-base">
+                    Phase 1: Measure Initial Angular Error 
+                    <Badge className="ml-2">
+                      {currentPhase === 1 ? "Active" : currentPhase > 1 ? "Complete" : "Pending"}
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Record readings at 0mm and {measurementDistance}mm to calculate initial error angle
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Reading at 0mm (A1)</Label>
+                      <div className="p-3 border rounded bg-muted/50 text-center">
+                        <p className="text-lg font-semibold">
+                          {A1_initial !== null ? A1_initial.toFixed(3) : "---"} μm
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          sendCommand("FNC 1\r");
+                          setTimeout(() => setA1_initial(currentReadingRef.current), 300);
+                        }}
+                        disabled={!isConnected || currentPhase !== 1}
+                        size="sm"
+                        className="w-full"
+                      >
+                        Record A1
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Reading at {measurementDistance}mm (A2)</Label>
+                      <div className="p-3 border rounded bg-muted/50 text-center">
+                        <p className="text-lg font-semibold">
+                          {A2_initial !== null ? A2_initial.toFixed(3) : "---"} μm
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          sendCommand("FNC 1\r");
+                          setTimeout(() => {
+                            const reading = currentReadingRef.current;
+                            setA2_initial(reading);
+                            if (A1_initial !== null && reading !== null) {
+                              const result = calculateInitialAngle(A1_initial, reading, parseFloat(measurementDistance));
+                              setTheta_initial(result);
+                            }
+                          }, 300);
+                        }}
+                        disabled={!isConnected || currentPhase !== 1 || A1_initial === null}
+                        size="sm"
+                        className="w-full"
+                      >
+                        Record A2
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {theta_initial && (
+                    <div className="p-3 border rounded bg-blue-50 text-center">
+                      <p className="text-sm font-semibold text-blue-700">
+                        ✓ Initial Error: {theta_initial.value.toFixed(2)} arcseconds
+                      </p>
+                    </div>
+                  )}
+                  
+                  {theta_initial && currentPhase === 1 && (
+                    <Button
+                      onClick={() => setCurrentPhase(2)}
+                      className="w-full"
+                    >
+                      Next Phase →
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Phase 2: Calibrate Adjustment (Find Pivot) */}
+              {currentPhase >= 2 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle as="h3" className="text-base">
+                      Phase 2: Calibrate Adjustment (Find Pivot)
+                      <Badge className="ml-2">
+                        {currentPhase === 2 ? "Active" : currentPhase > 2 ? "Complete" : "Pending"}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Make test adjustment to learn your setup's geometry
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      1. At {measurementDistance}mm position, make a deliberate angular adjustment<br/>
+                      2. Record new reading at {measurementDistance}mm<br/>
+                      3. Move back to 0mm and record reading<br/>
+                      4. Calculate lever arm distance
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Test reading at {measurementDistance}mm</Label>
+                        <div className="p-3 border rounded bg-muted/50 text-center">
+                          <p className="text-lg font-semibold">
+                            {A2_test !== null ? A2_test.toFixed(3) : "---"} μm
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            sendCommand("FNC 1\r");
+                            setTimeout(() => setA2_test(currentReadingRef.current), 300);
+                          }}
+                          disabled={!isConnected || currentPhase !== 2}
+                          size="sm"
+                          className="w-full"
+                        >
+                          Record A2_test
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Test reading at 0mm</Label>
+                        <div className="p-3 border rounded bg-muted/50 text-center">
+                          <p className="text-lg font-semibold">
+                            {A1_test !== null ? A1_test.toFixed(3) : "---"} μm
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            sendCommand("FNC 1\r");
+                            setTimeout(() => {
+                              const reading = currentReadingRef.current;
+                              setA1_test(reading);
+                              if (A1_initial !== null && A2_initial !== null && A2_test !== null && reading !== null) {
+                                const result = calculateLeverArm(A1_initial, A2_initial, reading, A2_test, parseFloat(measurementDistance));
+                                setLeverArmResult(result);
+                                if (result && A2_test !== null) {
+                                  const targetCalc = calculateTargetReading(A2_test, result.leverArm, result.theta_after_test);
+                                  setTargetResult(targetCalc);
+                                }
+                              }
+                            }, 300);
+                          }}
+                          disabled={!isConnected || currentPhase !== 2 || A2_test === null}
+                          size="sm"
+                          className="w-full"
+                        >
+                          Record A1_test
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {leverArmResult && (
+                      <div className="p-3 border rounded bg-green-50 space-y-1">
+                        <p className="text-sm font-semibold text-green-700">✓ Calibration Complete:</p>
+                        <p className="text-xs text-green-600">Lever Arm: {leverArmResult.leverArm.toFixed(1)} mm</p>
+                        <p className="text-xs text-green-600">Angle after test: {leverArmResult.theta_after_test.toFixed(2)} arcsec</p>
+                      </div>
+                    )}
+                    
+                    {leverArmResult && currentPhase === 2 && (
+                      <Button
+                        onClick={() => setCurrentPhase(3)}
+                        className="w-full"
+                      >
+                        Next Phase →
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Phase 3: Execute Final Correction */}
+              {currentPhase >= 3 && targetResult && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle as="h3" className="text-base">
+                      Phase 3: Execute Final Correction
+                      <Badge className="ml-2">Active</Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Adjust artifact until reading matches calculated target
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Move carriage to {measurementDistance}mm and adjust artifact until target reached
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <Label>Current Reading</Label>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {currentReading?.toFixed(3)} μm
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <Label>Target Reading</Label>
+                        <div className="text-2xl font-bold text-green-600">
+                          {targetResult.target.toFixed(3)} μm
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {targetProgress && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress to Target</span>
+                          <span>Error: {targetProgress.error.toFixed(1)} μm</span>
+                        </div>
+                        <Progress value={targetProgress.progress} className="h-2" />
+                        
+                        {targetProgress.isWithinTolerance ? (
+                          <div className="p-3 border rounded bg-green-50 text-center">
+                            <p className="text-sm font-semibold text-green-700">
+                              🎯 Target Achieved! Artifact aligned within tolerance.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="p-3 border rounded bg-yellow-50 text-center">
+                            <p className="text-sm text-yellow-700">
+                              Adjust artifact to reduce error to target reading
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+
+
+
+
+                     
+            </CardContent>
+            <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-                    <Button onClick={handleNextStep} disabled={!inSpec} className="bg-primary hover:bg-primary/90">
-                        {inSpec ? "Proceed to Measurement" : "Within Spec to Proceed"} <ChevronRight />
+                    <Button onClick={handleNextStep} disabled={!isCompleted} className="bg-primary hover:bg-primary/90">
+                        {isCompleted ? "Proceed to Final Measurements" : "Complete Alignment to Proceed"} <ChevronRight />
                     </Button>
                 </CardFooter>
             </Card>
@@ -910,7 +1021,7 @@ export function OrthoDashboard() {
                     </Card>
                      <ResultChart
                         isUITier
-                        travelDistance={parseFloat(travelDistance)}
+                        travelDistance={parseFloat(measurementDistance)}
                         finalMeasurement={measurements[measurements.length - 1]}
                         referenceMeasurement={measurements[0]}
                     />
@@ -933,7 +1044,7 @@ export function OrthoDashboard() {
             reportData={reportData}
             finalResult={finalResult}
             spec={SPEC_ARCSECONDS}
-            travelDistance={travelDistance}
+            measurementDistance={measurementDistance}
             finalMeasurement={measurements[measurements.length - 1]}
             referenceMeasurement={measurements[0]}
           />
@@ -1079,13 +1190,14 @@ function ResultChart({
     finalMeasurement?: Measurement,
     isUITier?: boolean
 }) {
+    const measurementDistance = travelDistance.toString();
     if (!referenceMeasurement || !finalMeasurement) return null;
     
     const errorExaggeration = isUITier ? 10000 : 1000;
 
     const plotData = [
         { name: 'Start', reference: 0, measurement: 0 },
-        { name: `End (${travelDistance}mm)`, reference: 0, measurement: (finalMeasurement.reading - referenceMeasurement.reading) * errorExaggeration }
+        { name: `End (${measurementDistance}mm)`, reference: 0, measurement: (finalMeasurement.reading - referenceMeasurement.reading) * errorExaggeration }
     ];
 
     const cardTitle = isUITier ? "Result Visualization" : "Axis Alignment";
@@ -1121,14 +1233,14 @@ function PrintableReport({
   reportData,
   finalResult,
   spec,
-  travelDistance,
+  measurementDistance,
   referenceMeasurement,
   finalMeasurement,
 }: {
   reportData: ReportData;
   finalResult: OrthogonalityResult;
   spec: number;
-  travelDistance: string;
+  measurementDistance: string;
   referenceMeasurement?: Measurement;
   finalMeasurement?: Measurement;
 }) {
@@ -1145,7 +1257,7 @@ function PrintableReport({
       
       <main className="flex-1">
         <ResultChart
-            travelDistance={parseFloat(travelDistance)}
+            travelDistance={parseFloat(measurementDistance)}
             finalMeasurement={finalMeasurement}
             referenceMeasurement={referenceMeasurement}
         />
