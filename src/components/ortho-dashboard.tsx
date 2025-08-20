@@ -423,24 +423,70 @@ export function OrthoDashboard() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                     {/* Phase 1: Probe A + Position */}
+                     {/* Top Section: Live Indicator + Mode Selector */}
+                     <Card>
+                       <CardHeader>
+                         <CardTitle as="h3" className="text-base">Current Indicator Reading</CardTitle>
+                         <CardDescription className="text-xs">Live reading from the indicator. Use probe selector to switch modes.</CardDescription>
+                       </CardHeader>
+                       <CardContent className="space-y-3">
+                         <LiveReadingCard 
+                           reading={currentReading} 
+                           isConnected={isConnected} 
+                           label="Live Reading"
+                         />
+                         <div className="space-y-2">
+                           <Label>Probe Mode Selector</Label>
+                           <div className="grid grid-cols-3 gap-2">
+                             <Button 
+                               onClick={() => sendCommand("FNC 1\r")}
+                               variant="outline" 
+                               className="flex flex-col items-center p-3 h-auto"
+                             >
+                               <div className="text-lg font-semibold">A</div>
+                               <div className="text-xs">Probe A</div>
+                             </Button>
+                             <Button 
+                               onClick={() => sendCommand("FNC 3\r")}
+                               variant="outline" 
+                               className="flex flex-col items-center p-3 h-auto"
+                             >
+                               <div className="text-lg font-semibold">B</div>
+                               <div className="text-xs">Probe B</div>
+                             </Button>
+                             <Button 
+                               onClick={() => sendCommand("FNC 6\r")}
+                               variant="outline" 
+                               className="flex flex-col items-center p-3 h-auto"
+                             >
+                               <div className="text-lg font-semibold">A-B</div>
+                               <div className="text-xs">Differential</div>
+                             </Button>
+                           </div>
+                         </div>
+                       </CardContent>
+                     </Card>
+                     
+                     {/* Phase 1: Initial Slope (Simplified) */}
                      <Card>
                        <CardHeader>
                          <CardTitle as="h3" className="text-base">Phase 1: Initial Slope (Probe A)</CardTitle>
                          <CardDescription className="text-xs">Zero Probe A at one end, then move carriage and record position.</CardDescription>
                        </CardHeader>
                        <CardContent className="space-y-3">
-                         <LiveReadingCard 
-                           reading={currentReading} 
-                           isConnected={isConnected} 
-                           label="Probe A Reading"
-                           onZero={() => {
+                         <Button 
+                           onClick={() => {
                              setPhase1ZeroReading(currentReading);
                              if (isSimulation && setSimulationReading) {
                                setSimulationReading(currentReading);
                              }
                            }}
-                         />
+                           disabled={!isConnected}
+                           variant="outline"
+                           className="w-full"
+                         >
+                           Zero Probe A
+                         </Button>
                          <div className="space-y-2">
                            <Label htmlFor="currentPosition">Current Carriage Position (mm)</Label>
                            <Input
@@ -452,20 +498,30 @@ export function OrthoDashboard() {
                            />
                          </div>
                          <Button 
-                           onClick={() => setPhase1ProbeAReading(currentReading)}
+                           onClick={() => {
+                             sendCommand("FNC 1\r"); // Auto-switch to Probe A
+                             setTimeout(() => setPhase1ProbeAReading(currentReading), 100); // Small delay for switching
+                           }}
                            disabled={!isConnected || parseFloat(currentPosition) <= 0}
                            className="w-full"
                          >
                            Record Probe A Reading at {currentPosition}mm
                          </Button>
+                         {phase1ProbeAReading !== null && (
+                           <div className="p-3 border rounded bg-green-50 text-center">
+                             <p className="text-sm text-green-700">
+                               Recorded: {phase1ProbeAReading.toFixed(3)} μm at {currentPosition}mm
+                             </p>
+                           </div>
+                         )}
                        </CardContent>
                      </Card>
                      
-                     {/* Phase 2: Two-Probe Independent Readings */}
+                     {/* Phase 2: Two-Probe Slope Calculation */}
                      <Card>
                        <CardHeader>
                          <CardTitle as="h3" className="text-base">Phase 2: Two-Probe Slope Calculation</CardTitle>
-                         <CardDescription className="text-xs">Record both Probe A and Probe B readings independently for real-time slope calculation.</CardDescription>
+                         <CardDescription className="text-xs">Record both probe readings independently. Buttons auto-switch to correct probe mode.</CardDescription>
                        </CardHeader>
                        <CardContent className="space-y-3">
                          <div className="grid grid-cols-2 gap-3">
@@ -477,7 +533,10 @@ export function OrthoDashboard() {
                                </p>
                              </div>
                              <Button 
-                               onClick={() => setCurrentProbeAReading(currentReading)}
+                               onClick={() => {
+                                 sendCommand("FNC 1\r"); // Auto-switch to Probe A
+                                 setTimeout(() => setCurrentProbeAReading(currentReading), 100);
+                               }}
                                disabled={!isConnected}
                                size="sm"
                                className="w-full"
@@ -493,7 +552,10 @@ export function OrthoDashboard() {
                                </p>
                              </div>
                              <Button 
-                               onClick={() => setCurrentProbeBReading(currentReading)}
+                               onClick={() => {
+                                 sendCommand("FNC 3\r"); // Auto-switch to Probe B
+                                 setTimeout(() => setCurrentProbeBReading(currentReading), 100);
+                               }}
                                disabled={!isConnected}
                                size="sm"
                                className="w-full"
@@ -502,47 +564,15 @@ export function OrthoDashboard() {
                              </Button>
                            </div>
                          </div>
-                         <LiveReadingCard 
-                           reading={currentReading} 
-                           isConnected={isConnected} 
-                           label="Current Indicator Reading"
-                         />
-                       </CardContent>
-                     </Card>
-
-                     {/* Probe Mode Selector */}
-                     <Card>
-                       <CardHeader>
-                         <CardTitle as="h3" className="text-base">Probe Mode Selector</CardTitle>
-                         <CardDescription className="text-xs">Switch between probe modes. Watch the current reading change.</CardDescription>
-                       </CardHeader>
-                       <CardContent>
-                         <div className="grid grid-cols-3 gap-2">
-                           <Button 
-                             onClick={() => sendCommand("FNC 1\r")}
-                             variant="outline" 
-                             className="flex flex-col items-center p-4 h-auto"
-                           >
-                             <div className="text-lg font-semibold">A</div>
-                             <div className="text-xs">Probe A</div>
-                           </Button>
-                           <Button 
-                             onClick={() => sendCommand("FNC 3\r")}
-                             variant="outline" 
-                             className="flex flex-col items-center p-4 h-auto"
-                           >
-                             <div className="text-lg font-semibold">B</div>
-                             <div className="text-xs">Probe B</div>
-                           </Button>
-                           <Button 
-                             onClick={() => sendCommand("FNC 6\r")}
-                             variant="outline" 
-                             className="flex flex-col items-center p-4 h-auto"
-                           >
-                             <div className="text-lg font-semibold">A-B</div>
-                             <div className="text-xs">Differential</div>
-                           </Button>
-                         </div>
+                         
+                         {/* Live Adjustment - only show when both probes recorded */}
+                         {currentProbeAReading !== null && currentProbeBReading !== null && (
+                           <AdjustmentBar 
+                             result={liveSquaringOrthogonality} 
+                             spec={1}
+                             showSpecMessage={true}
+                           />
+                         )}
                        </CardContent>
                      </Card>
 
