@@ -102,6 +102,9 @@ export function OrthoDashboard() {
   const [phase1ZeroReading, setPhase1ZeroReading] = useState<number | null>(null);
   const [currentProbeAReading, setCurrentProbeAReading] = useState<number | null>(null);
   const [currentProbeBReading, setCurrentProbeBReading] = useState<number | null>(null);
+  const [liveProbeAReading, setLiveProbeAReading] = useState<number | null>(null);
+  const [liveProbeBReading, setLiveProbeBReading] = useState<number | null>(null);
+  const [isLiveReadingActive, setIsLiveReadingActive] = useState(false);
   const [reportData, setReportData] = useState<ReportData>({
     technician: "Andrew T. Jung",
     axis1Serial: "643237-1-1-X",
@@ -118,6 +121,50 @@ export function OrthoDashboard() {
 
   const isConnected = connectionStatus === 'connected';
 
+  // Rapid switching for live readings
+  const [currentProbeMode, setCurrentProbeMode] = useState<'A' | 'B'>('A');
+  const switchingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startRapidSwitching = useCallback(() => {
+    if (!isConnected || isLiveReadingActive) return;
+    
+    setIsLiveReadingActive(true);
+    let mode: 'A' | 'B' = 'A';
+    
+    switchingIntervalRef.current = setInterval(() => {
+      if (mode === 'A') {
+        sendCommand("FNC 1\r"); // Switch to Probe A
+        setCurrentProbeMode('A');
+        // Capture reading after small delay
+        setTimeout(() => {
+          setLiveProbeAReading(currentReading);
+        }, 50);
+        mode = 'B';
+      } else {
+        sendCommand("FNC 3\r"); // Switch to Probe B  
+        setCurrentProbeMode('B');
+        // Capture reading after small delay
+        setTimeout(() => {
+          setLiveProbeBReading(currentReading);
+        }, 50);
+        mode = 'A';
+      }
+    }, 200); // Switch every 200ms
+  }, [isConnected, isLiveReadingActive, sendCommand, currentReading]);
+
+  const stopRapidSwitching = useCallback(() => {
+    if (switchingIntervalRef.current) {
+      clearInterval(switchingIntervalRef.current);
+      switchingIntervalRef.current = null;
+    }
+    setIsLiveReadingActive(false);
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopRapidSwitching();
+  }, [stopRapidSwitching]);
+
   const resetProcess = () => {
     setStep("setup");
     setSquaringMeasurements([]);
@@ -130,6 +177,9 @@ export function OrthoDashboard() {
     setPhase1ZeroReading(null);
     setCurrentProbeAReading(null);
     setCurrentProbeBReading(null);
+    setLiveProbeAReading(null);
+    setLiveProbeBReading(null);
+    stopRapidSwitching();
     setCurrentPosition("0");
     setProbeSpacing("30");
     if(isConnected) {
@@ -233,13 +283,13 @@ export function OrthoDashboard() {
       )
     : null;
   
-  // Use two-probe approach for real-time slope calculation
-  const liveSquaringOrthogonality = (currentProbeAReading !== null && currentProbeBReading !== null && parseFloat(currentPosition) > 0)
-    ? calculateSlopeFromTwoProbes(currentProbeAReading, parseFloat(currentPosition), currentProbeBReading, parseFloat(currentPosition) + parseFloat(probeSpacing))
+  // Use live readings for real-time slope calculation
+  const liveSquaringOrthogonality = (liveProbeAReading !== null && liveProbeBReading !== null && parseFloat(currentPosition) > 0)
+    ? calculateSlopeFromTwoProbes(liveProbeAReading, parseFloat(currentPosition), liveProbeBReading, parseFloat(currentPosition) + parseFloat(probeSpacing))
     : null;
     
-  const liveOrthogonality = (currentProbeAReading !== null && currentProbeBReading !== null && parseFloat(currentPosition) > 0)
-    ? calculateSlopeFromTwoProbes(currentProbeAReading, parseFloat(currentPosition), currentProbeBReading, parseFloat(currentPosition) + parseFloat(probeSpacing))
+  const liveOrthogonality = (liveProbeAReading !== null && liveProbeBReading !== null && parseFloat(currentPosition) > 0)
+    ? calculateSlopeFromTwoProbes(liveProbeAReading, parseFloat(currentPosition), liveProbeBReading, parseFloat(currentPosition) + parseFloat(probeSpacing))
     : null;
   
   // Debug logging
@@ -566,14 +616,40 @@ export function OrthoDashboard() {
                            </div>
                          </div>
                          
-                         {/* Live Adjustment - only show when both probes recorded */}
-                         {currentProbeAReading !== null && currentProbeBReading !== null && (
-                           <AdjustmentBar 
-                             result={liveSquaringOrthogonality} 
-                             spec={1}
-                             showSpecMessage={true}
-                           />
-                         )}
+                         {/* Live Reading Controls */}
+                         <div className="space-y-2">
+                           <Label>Live Reading System</Label>
+                           <div className="flex gap-2">
+                             <Button 
+                               onClick={startRapidSwitching}
+                               disabled={!isConnected || isLiveReadingActive}
+                               size="sm"
+                               className="flex-1"
+                             >
+                               {isLiveReadingActive ? "Live Reading Active" : "Start Live Reading"}
+                             </Button>
+                             <Button 
+                               onClick={stopRapidSwitching}
+                               disabled={!isLiveReadingActive}
+                               variant="outline"
+                               size="sm"
+                               className="flex-1"
+                             >
+                               Stop Live Reading
+                             </Button>
+                           </div>
+                           {isLiveReadingActive && (
+                             <div className="p-2 border rounded bg-green-50 text-center">
+                               <p className="text-xs text-green-700">
+                                 🔄 Switching between Probe A and B every 200ms (Current: {currentProbeMode})
+                               </p>
+                               <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                                 <div>A: {liveProbeAReading !== null ? liveProbeAReading.toFixed(3) : "---"} μm</div>
+                                 <div>B: {liveProbeBReading !== null ? liveProbeBReading.toFixed(3) : "---"} μm</div>
+                               </div>
+                             </div>
+                           )}
+                         </div>
                        </CardContent>
                      </Card>
 
