@@ -446,15 +446,7 @@ export function OrthoDashboard() {
                         onChange={(e) => setMeasurementDistance(e.target.value)}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="probeSpacing">Probe A-B Spacing (mm)</Label>
-                      <Input
-                        id="probeSpacing"
-                        type="number"
-                        value={probeSpacing}
-                        onChange={(e) => setProbeSpacing(e.target.value)}
-                      />
-                    </div>
+
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="item-2">
@@ -582,15 +574,6 @@ export function OrthoDashboard() {
                     isConnected={isConnected}
                     label="Live Reading"
                   />
-                  <div className="mt-2 space-y-2">
-                    <Label>Current Position (mm)</Label>
-                    <Input
-                      type="number"
-                      value={currentPosition}
-                      onChange={(e) => setCurrentPosition(e.target.value)}
-                      placeholder="Enter carriage position"
-                    />
-                  </div>
                 </CardContent>
               </Card>
 
@@ -687,7 +670,7 @@ export function OrthoDashboard() {
                       </Badge>
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Make test adjustment to learn your setup's geometry
+                      Make test adjustment to learn your setup's geometry. Re-record values after large adjustments to check if pivot point changed.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -711,7 +694,7 @@ export function OrthoDashboard() {
                             sendCommand("FNC 1\r");
                             setTimeout(() => setA2_test(currentReadingRef.current), 300);
                           }}
-                          disabled={!isConnected || currentPhase !== 2}
+                          disabled={!isConnected || currentPhase < 2}
                           size="sm"
                           className="w-full"
                         >
@@ -742,7 +725,7 @@ export function OrthoDashboard() {
                               }
                             }, 300);
                           }}
-                          disabled={!isConnected || currentPhase !== 2 || A2_test === null}
+                          disabled={!isConnected || currentPhase < 2 || A2_test === null}
                           size="sm"
                           className="w-full"
                         >
@@ -759,14 +742,32 @@ export function OrthoDashboard() {
                       </div>
                     )}
                     
-                    {leverArmResult && currentPhase === 2 && (
-                      <Button
-                        onClick={() => setCurrentPhase(3)}
-                        className="w-full"
-                      >
-                        Next Phase →
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {leverArmResult && currentPhase >= 2 && (
+                        <Button
+                          onClick={() => {
+                            setA2_test(null);
+                            setA1_test(null);
+                            setLeverArmResult(null);
+                            setTargetResult(null);
+                            setTargetProgress(null);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                        >
+                          Clear & Re-calibrate
+                        </Button>
+                      )}
+                      {leverArmResult && currentPhase === 2 && (
+                        <Button
+                          onClick={() => setCurrentPhase(3)}
+                          className="flex-1"
+                        >
+                          Next Phase →
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               )}
