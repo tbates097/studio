@@ -85,6 +85,7 @@ export function OrthoDashboard() {
   const [probeSpacing, setProbeSpacing] = useState("30");
   const { 
     reading: currentReading, 
+    currentReadingRef,
     connect, 
     disconnect,
     sendCommand,
@@ -137,7 +138,7 @@ export function OrthoDashboard() {
         setCurrentProbeMode('A');
         // Capture reading after small delay
         setTimeout(() => {
-          setLiveProbeAReading(currentReading);
+          setLiveProbeAReading(currentReadingRef.current);
         }, 50);
         mode = 'B';
       } else {
@@ -145,12 +146,12 @@ export function OrthoDashboard() {
         setCurrentProbeMode('B');
         // Capture reading after small delay
         setTimeout(() => {
-          setLiveProbeBReading(currentReading);
+          setLiveProbeBReading(currentReadingRef.current);
         }, 50);
         mode = 'A';
       }
     }, 200); // Switch every 200ms
-  }, [isConnected, isLiveReadingActive, sendCommand, currentReading]);
+  }, [isConnected, isLiveReadingActive, sendCommand, currentReadingRef]);
 
   const stopRapidSwitching = useCallback(() => {
     if (switchingIntervalRef.current) {
@@ -164,6 +165,20 @@ export function OrthoDashboard() {
   useEffect(() => {
     return () => stopRapidSwitching();
   }, [stopRapidSwitching]);
+
+  // Helper function to capture reading after switching probe mode
+  const captureReadingAfterSwitch = useCallback((command: string, callback: (reading: number | null) => void) => {
+    if (!isConnected) return;
+    
+    // Send command to switch probe mode
+    sendCommand(command);
+    
+    // Wait for indicator to switch and capture the reading that's current at that time
+    setTimeout(() => {
+      // Use ref to get the most current reading value
+      callback(currentReadingRef.current);
+    }, 300);
+  }, [isConnected, sendCommand, currentReadingRef]);
 
   const resetProcess = () => {
     setStep("setup");
@@ -585,8 +600,7 @@ export function OrthoDashboard() {
                              </div>
                              <Button 
                                onClick={() => {
-                                 sendCommand("FNC 1\r"); // Auto-switch to Probe A
-                                 setTimeout(() => setCurrentProbeAReading(currentReading), 100);
+                                 captureReadingAfterSwitch("FNC 1\r", setCurrentProbeAReading);
                                }}
                                disabled={!isConnected}
                                size="sm"
@@ -604,8 +618,7 @@ export function OrthoDashboard() {
                              </div>
                              <Button 
                                onClick={() => {
-                                 sendCommand("FNC 3\r"); // Auto-switch to Probe B
-                                 setTimeout(() => setCurrentProbeBReading(currentReading), 100);
+                                 captureReadingAfterSwitch("FNC 3\r", setCurrentProbeBReading);
                                }}
                                disabled={!isConnected}
                                size="sm"

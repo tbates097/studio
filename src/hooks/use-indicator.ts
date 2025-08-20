@@ -29,6 +29,7 @@ export function useIndicator() {
   const { toast } = useToast();
   const [reading, setReading] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  const currentReadingRef = useRef(0);
 
   const portRef = useRef<SerialPort | null>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
@@ -42,6 +43,7 @@ export function useIndicator() {
     if (IS_SIMULATION_ENABLED) {
         simulationBaseReadingRef.current = newReading;
         setReading(newReading);
+        currentReadingRef.current = newReading;
     }
   }, []);
 
@@ -155,6 +157,7 @@ export function useIndicator() {
               const valueInMicrons = parsedValue * 1000;
 
               setReading(valueInMicrons);
+              currentReadingRef.current = valueInMicrons;
             } else {
               console.log("Could not parse as number:", trimmedLine);
             }
@@ -264,7 +267,11 @@ export function useIndicator() {
             if (!simulationIntervalRef.current) {
               simulationIntervalRef.current = setInterval(() => {
                   const fluctuation = (Math.random() - 0.5) * 0.01;
-                  setReading(prev => prev + fluctuation);
+                  setReading(prev => {
+                    const newValue = prev + fluctuation;
+                    currentReadingRef.current = newValue;
+                    return newValue;
+                  });
               }, 150);
             }
         }, 1000);
@@ -356,6 +363,7 @@ export function useIndicator() {
 
   return { 
     reading, 
+    currentReadingRef,
     connect, 
     disconnect, 
     sendCommand, 
