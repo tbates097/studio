@@ -41,7 +41,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { calculateOrthogonality, calculateSlopeFromDifferential, calculateTwoPhaseOrthogonality } from "@/lib/calculations";
+import { calculateOrthogonality, calculateSlopeFromDifferential, calculateTwoPhaseOrthogonality, calculateSlopeFromTwoProbes } from "@/lib/calculations";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "./icons/logo";
 import { Progress } from "@/components/ui/progress";
@@ -100,6 +100,8 @@ export function OrthoDashboard() {
   const [adjustmentZero, setAdjustmentZero] = useState<number | null>(null);
   const [phase1ProbeAReading, setPhase1ProbeAReading] = useState<number | null>(null);
   const [phase1ZeroReading, setPhase1ZeroReading] = useState<number | null>(null);
+  const [currentProbeAReading, setCurrentProbeAReading] = useState<number | null>(null);
+  const [currentProbeBReading, setCurrentProbeBReading] = useState<number | null>(null);
   const [reportData, setReportData] = useState<ReportData>({
     technician: "Andrew T. Jung",
     axis1Serial: "643237-1-1-X",
@@ -126,6 +128,8 @@ export function OrthoDashboard() {
     setSquaringResult(null);
     setPhase1ProbeAReading(null);
     setPhase1ZeroReading(null);
+    setCurrentProbeAReading(null);
+    setCurrentProbeBReading(null);
     setCurrentPosition("0");
     setProbeSpacing("30");
     if(isConnected) {
@@ -229,9 +233,14 @@ export function OrthoDashboard() {
       )
     : null;
   
-  // Use Phase 2 (A-B differential) for both squaring and adjustment steps - ALWAYS real-time
-  const liveSquaringOrthogonality = calculateSlopeFromDifferential(currentReading, parseFloat(probeSpacing));
-  const liveOrthogonality = calculateSlopeFromDifferential(currentReading, parseFloat(probeSpacing));
+  // Use two-probe approach for real-time slope calculation
+  const liveSquaringOrthogonality = (currentProbeAReading !== null && currentProbeBReading !== null && parseFloat(currentPosition) > 0)
+    ? calculateSlopeFromTwoProbes(currentProbeAReading, parseFloat(currentPosition), currentProbeBReading, parseFloat(currentPosition) + parseFloat(probeSpacing))
+    : null;
+    
+  const liveOrthogonality = (currentProbeAReading !== null && currentProbeBReading !== null && parseFloat(currentPosition) > 0)
+    ? calculateSlopeFromTwoProbes(currentProbeAReading, parseFloat(currentPosition), currentProbeBReading, parseFloat(currentPosition) + parseFloat(probeSpacing))
+    : null;
   
   // Debug logging
   console.log('🔍 === LIVE ADJUSTMENT DEBUG ===');
@@ -452,101 +461,87 @@ export function OrthoDashboard() {
                        </CardContent>
                      </Card>
                      
-                     {/* Phase 2: A-B Differential */}
+                     {/* Phase 2: Two-Probe Independent Readings */}
                      <Card>
                        <CardHeader>
-                         <CardTitle as="h3" className="text-base">Phase 2: Live Adjustment (A-B Differential)</CardTitle>
-                         <CardDescription className="text-xs">Set indicator to A-B mode with probes {probeSpacing}mm apart for real-time feedback.</CardDescription>
+                         <CardTitle as="h3" className="text-base">Phase 2: Two-Probe Slope Calculation</CardTitle>
+                         <CardDescription className="text-xs">Record both Probe A and Probe B readings independently for real-time slope calculation.</CardDescription>
                        </CardHeader>
-                       <CardContent>
+                       <CardContent className="space-y-3">
+                         <div className="grid grid-cols-2 gap-3">
+                           <div className="space-y-2">
+                             <Label>Probe A Reading</Label>
+                             <div className="p-3 border rounded bg-muted/50 text-center">
+                               <p className="text-lg font-semibold">
+                                 {currentProbeAReading !== null ? currentProbeAReading.toFixed(3) : "---"} μm
+                               </p>
+                             </div>
+                             <Button 
+                               onClick={() => setCurrentProbeAReading(currentReading)}
+                               disabled={!isConnected}
+                               size="sm"
+                               className="w-full"
+                             >
+                               Record Probe A
+                             </Button>
+                           </div>
+                           <div className="space-y-2">
+                             <Label>Probe B Reading</Label>
+                             <div className="p-3 border rounded bg-muted/50 text-center">
+                               <p className="text-lg font-semibold">
+                                 {currentProbeBReading !== null ? currentProbeBReading.toFixed(3) : "---"} μm
+                               </p>
+                             </div>
+                             <Button 
+                               onClick={() => setCurrentProbeBReading(currentReading)}
+                               disabled={!isConnected}
+                               size="sm"
+                               className="w-full"
+                             >
+                               Record Probe B
+                             </Button>
+                           </div>
+                         </div>
                          <LiveReadingCard 
                            reading={currentReading} 
                            isConnected={isConnected} 
-                           label="A-B Differential"
+                           label="Current Indicator Reading"
                          />
                        </CardContent>
                      </Card>
 
-                     {/* Command Tester */}
+                     {/* Probe Mode Selector */}
                      <Card>
                        <CardHeader>
-                         <CardTitle as="h3" className="text-base">Command Tester</CardTitle>
-                         <CardDescription className="text-xs">Test commands to switch probe modes. Watch the Live Reading above to see changes.</CardDescription>
+                         <CardTitle as="h3" className="text-base">Probe Mode Selector</CardTitle>
+                         <CardDescription className="text-xs">Switch between probe modes. Watch the current reading change.</CardDescription>
                        </CardHeader>
                        <CardContent>
-                         <div className="space-y-3">
-                           <div className="grid grid-cols-2 gap-2">
-                             <Button 
-                               onClick={() => sendCommand("FNC A\r")}
-                               variant="outline" 
-                               size="sm"
-                             >
-                               FNC A
-                             </Button>
-                             <Button 
-                               onClick={() => sendCommand("FNC B\r")}
-                               variant="outline" 
-                               size="sm"
-                             >
-                               FNC B
-                             </Button>
-                             <Button 
-                               onClick={() => sendCommand("FNC AB\r")}
-                               variant="outline" 
-                               size="sm"
-                             >
-                               FNC AB
-                             </Button>
-                             <Button 
-                               onClick={() => sendCommand("FNC 1\r")}
-                               variant="outline" 
-                               size="sm"
-                             >
-                               FNC 1
-                             </Button>
-                             <Button 
-                               onClick={() => sendCommand("FNC 2\r")}
-                               variant="outline" 
-                               size="sm"
-                             >
-                               FNC 2
-                             </Button>
-                             <Button 
-                               onClick={() => sendCommand("FNC 6\r")}
-                               variant="outline" 
-                               size="sm"
-                             >
-                               FNC 6
-                             </Button>
-                           </div>
-                           <div className="space-y-2">
-                             <Label htmlFor="customCommand">Custom Command</Label>
-                             <div className="flex gap-2">
-                               <Input
-                                 id="customCommand"
-                                 placeholder="e.g. FNC 3"
-                                 onKeyDown={(e) => {
-                                   if (e.key === 'Enter') {
-                                     const command = e.currentTarget.value + '\r';
-                                     sendCommand(command);
-                                     e.currentTarget.value = '';
-                                   }
-                                 }}
-                               />
-                               <Button 
-                                 onClick={() => {
-                                   const input = document.getElementById('customCommand') as HTMLInputElement;
-                                   if (input.value) {
-                                     sendCommand(input.value + '\r');
-                                     input.value = '';
-                                   }
-                                 }}
-                                 size="sm"
-                               >
-                                 Send
-                               </Button>
-                             </div>
-                           </div>
+                         <div className="grid grid-cols-3 gap-2">
+                           <Button 
+                             onClick={() => sendCommand("FNC 1\r")}
+                             variant="outline" 
+                             className="flex flex-col items-center p-4 h-auto"
+                           >
+                             <div className="text-lg font-semibold">A</div>
+                             <div className="text-xs">Probe A</div>
+                           </Button>
+                           <Button 
+                             onClick={() => sendCommand("FNC 3\r")}
+                             variant="outline" 
+                             className="flex flex-col items-center p-4 h-auto"
+                           >
+                             <div className="text-lg font-semibold">B</div>
+                             <div className="text-xs">Probe B</div>
+                           </Button>
+                           <Button 
+                             onClick={() => sendCommand("FNC 6\r")}
+                             variant="outline" 
+                             className="flex flex-col items-center p-4 h-auto"
+                           >
+                             <div className="text-lg font-semibold">A-B</div>
+                             <div className="text-xs">Differential</div>
+                           </Button>
                          </div>
                        </CardContent>
                      </Card>
