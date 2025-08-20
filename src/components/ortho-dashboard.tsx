@@ -130,6 +130,20 @@ export function OrthoDashboard() {
   const [A2_test, setA2_test] = useState<number | null>(null);
   const [leverArmResult, setLeverArmResult] = useState<{ leverArm: number; theta_initial: number; theta_after_test: number; delta_theta: number; unit: "mm" } | null>(null);
   
+  // Calibration History & Confidence Tracking
+  const [calibrationHistory, setCalibrationHistory] = useState<Array<{
+    leverArm: number;
+    timestamp: number;
+    A1_test: number;
+    A2_test: number;
+    theta_after_test: number;
+  }>>([]);
+  const [pivotConfidence, setPivotConfidence] = useState<{
+    level: "high" | "medium" | "low" | "unknown";
+    variation: number;
+    message: string;
+  }>({ level: "unknown", variation: 0, message: "No calibration data yet" });
+
   // Phase 3: Execute Final Correction
   const [targetResult, setTargetResult] = useState<{ target: number; correction: number; unit: "μm" } | null>(null);
   const [targetProgress, setTargetProgress] = useState<{ isWithinTolerance: boolean; error: number; progress: number; unit: "μm" } | null>(null);
@@ -251,6 +265,8 @@ export function OrthoDashboard() {
     setLeverArmResult(null);
     setTargetResult(null);
     setTargetProgress(null);
+    setCalibrationHistory([]);
+    setPivotConfidence({ level: "unknown", variation: 0, message: "No calibration data yet" });
     
     if(isConnected) {
       disconnect();
@@ -385,6 +401,27 @@ export function OrthoDashboard() {
       setTargetProgress(null);
     }
   }, [currentPhase, targetResult, currentReading]);
+
+  // Calculate confidence based on calibration history
+  const calculateConfidence = useCallback((history: Array<{leverArm: number}>) => {
+    if (history.length < 2) return { level: "unknown" as const, variation: 0, message: "Need more calibrations for confidence assessment" };
+    
+    const leverArms = history.map(h => h.leverArm);
+    const avg = leverArms.reduce((sum, val) => sum + val, 0) / leverArms.length;
+    const variance = leverArms.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / leverArms.length;
+    const stdDev = Math.sqrt(variance);
+    const variation = (stdDev / avg) * 100; // Percentage variation
+    
+    if (variation < 5) return { level: "high" as const, variation, message: "Pivot point very stable - high confidence" };
+    if (variation < 15) return { level: "medium" as const, variation, message: "Pivot point moderately stable - reasonable confidence" };
+    return { level: "low" as const, variation, message: "Pivot point varies significantly - consider mechanical adjustment" };
+  }, []);
+
+  // Update confidence when calibration history changes
+  useEffect(() => {
+    const newConfidence = calculateConfidence(calibrationHistory);
+    setPivotConfidence(newConfidence);
+  }, [calibrationHistory, calculateConfidence]);
 
   // Use stable calculation for display
   const liveSquaringOrthogonality = stableLiveOrthogonality;
@@ -569,9 +606,9 @@ export function OrthoDashboard() {
                   <CardDescription className="text-xs">Live reading from Probe A</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <LiveReadingCard
+                     <LiveReadingCard 
                     reading={currentReading}
-                    isConnected={isConnected}
+                       isConnected={isConnected} 
                     label="Live Reading"
                   />
                 </CardContent>
@@ -661,8 +698,8 @@ export function OrthoDashboard() {
 
               {/* Phase 2: Calibrate Adjustment (Find Pivot) */}
               {currentPhase >= 2 && (
-                <Card>
-                  <CardHeader>
+                        <Card>
+                        <CardHeader>
                     <CardTitle as="h3" className="text-base">
                       Phase 2: Calibrate Adjustment (Find Pivot)
                       <Badge className="ml-2">
@@ -672,7 +709,7 @@ export function OrthoDashboard() {
                     <CardDescription className="text-xs">
                       Make test adjustment to learn your setup's geometry. Re-record values after large adjustments to check if pivot point changed.
                     </CardDescription>
-                  </CardHeader>
+                        </CardHeader>
                   <CardContent className="space-y-3">
                     <p className="text-sm text-muted-foreground">
                       1. At {measurementDistance}mm position, make a deliberate angular adjustment<br/>
@@ -721,6 +758,16 @@ export function OrthoDashboard() {
                                 if (result && A2_test !== null) {
                                   const targetCalc = calculateTargetReading(A2_test, result.leverArm, result.theta_after_test);
                                   setTargetResult(targetCalc);
+                                  
+                                  // Add to calibration history
+                                  const newCalibration = {
+                                    leverArm: result.leverArm,
+                                    timestamp: Date.now(),
+                                    A1_test: reading,
+                                    A2_test: A2_test,
+                                    theta_after_test: result.theta_after_test
+                                  };
+                                  setCalibrationHistory(prev => [...prev, newCalibration]);
                                 }
                               }
                             }, 300);
@@ -742,6 +789,22 @@ export function OrthoDashboard() {
                       </div>
                     )}
                     
+                    {/* Confidence Display */}
+                    {pivotConfidence.level !== "unknown" && (
+                      <div className={`p-3 border rounded space-y-1 ${
+                        pivotConfidence.level === "high" ? "bg-green-50 border-green-200" :
+                        pivotConfidence.level === "medium" ? "bg-yellow-50 border-yellow-200" : 
+                        "bg-red-50 border-red-200"
+                      }`}>
+                        <div className="flex justify-between items-center">
+                          <p className="text-sm font-semibold">Pivot Confidence: {pivotConfidence.level.toUpperCase()}</p>
+                          <span className="text-xs">±{pivotConfidence.variation.toFixed(1)}%</span>
+                        </div>
+                        <p className="text-xs">{pivotConfidence.message}</p>
+                        <p className="text-xs">Calibrations: {calibrationHistory.length}</p>
+                      </div>
+                    )}
+                    
                     <div className="flex gap-2">
                       {leverArmResult && currentPhase >= 2 && (
                         <Button
@@ -751,12 +814,13 @@ export function OrthoDashboard() {
                             setLeverArmResult(null);
                             setTargetResult(null);
                             setTargetProgress(null);
+                            // Keep calibration history for confidence tracking
                           }}
                           variant="outline"
                           size="sm"
                           className="flex-1"
                         >
-                          Clear & Re-calibrate
+                          New Calibration
                         </Button>
                       )}
                       {leverArmResult && currentPhase === 2 && (
@@ -768,9 +832,9 @@ export function OrthoDashboard() {
                         </Button>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                        </CardContent>
+                        </Card>
+                    )}
 
               {/* Phase 3: Execute Final Correction */}
               {currentPhase >= 3 && targetResult && (
@@ -828,16 +892,16 @@ export function OrthoDashboard() {
                       </div>
                     )}
                   </CardContent>
-                </Card>
-              )}
+                        </Card>
+                    )}
 
 
 
 
 
-                     
-            </CardContent>
-            <CardFooter className="justify-between">
+
+                </CardContent>
+                <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
                     <Button onClick={handleNextStep} disabled={!isCompleted} className="bg-primary hover:bg-primary/90">
                         {isCompleted ? "Proceed to Final Measurements" : "Complete Alignment to Proceed"} <ChevronRight />
@@ -905,8 +969,8 @@ export function OrthoDashboard() {
                     label="A-B Differential"
                 />
                 
-                <Card>
-                  <CardHeader>
+                    <Card>
+                        <CardHeader>
                     <CardTitle as="h3" className="text-base">Carriage Position</CardTitle>
                     <CardDescription className="text-xs">Current position for two-phase calculation.</CardDescription>
                   </CardHeader>
@@ -943,10 +1007,10 @@ export function OrthoDashboard() {
                 )}
 
 
-                <AdjustmentBar 
+                    <AdjustmentBar 
                     result={liveOrthogonality} 
                     spec={1} 
-                />
+                    />
             </CardContent>
             <CardFooter className="justify-between">
               <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
@@ -1128,7 +1192,7 @@ function AdjustmentBar({
   const { value, unit } = result;
   
   console.log('AdjustmentBar - value:', value, 'unit:', unit);
-  
+
   // Since we're now only using arcseconds, we can simplify this
   const valueInArcsec = value; // Already in arcseconds
   const maxDisplayArcsec = spec * 3; 
