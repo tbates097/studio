@@ -476,16 +476,17 @@ export function OrthoDashboard() {
                        <CardContent className="space-y-3">
                          <Button 
                            onClick={() => {
-                             setPhase1ZeroReading(currentReading);
+                             sendCommand("PRZ\r"); // Send zero command to indicator
+                             setPhase1ZeroReading(0); // Set software zero reference
                              if (isSimulation && setSimulationReading) {
-                               setSimulationReading(currentReading);
+                               setSimulationReading(0);
                              }
                            }}
                            disabled={!isConnected}
                            variant="outline"
                            className="w-full"
                          >
-                           Zero Probe A
+                           Zero Indicator
                          </Button>
                          <div className="space-y-2">
                            <Label htmlFor="currentPosition">Current Carriage Position (mm)</Label>
