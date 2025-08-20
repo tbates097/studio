@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -274,6 +273,92 @@ export function OrthoDashboard() {
                   </>
                 )}
               </Button>
+
+              {/* Command Tester */}
+              {isConnected && (
+                <Accordion type="multiple" className="w-full">
+                  <AccordionItem value="command-tester">
+                    <AccordionTrigger>Command Tester</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3">
+                        <p className="text-xs text-muted-foreground">Test commands to switch probe modes. Watch the Live Reading to see changes.</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button 
+                            onClick={() => sendCommand("FNC A\r")}
+                            variant="outline" 
+                            size="sm"
+                          >
+                            FNC A
+                          </Button>
+                          <Button 
+                            onClick={() => sendCommand("FNC B\r")}
+                            variant="outline" 
+                            size="sm"
+                          >
+                            FNC B
+                          </Button>
+                          <Button 
+                            onClick={() => sendCommand("FNC AB\r")}
+                            variant="outline" 
+                            size="sm"
+                          >
+                            FNC AB
+                          </Button>
+                          <Button 
+                            onClick={() => sendCommand("FNC 1\r")}
+                            variant="outline" 
+                            size="sm"
+                          >
+                            FNC 1
+                          </Button>
+                          <Button 
+                            onClick={() => sendCommand("FNC 2\r")}
+                            variant="outline" 
+                            size="sm"
+                          >
+                            FNC 2
+                          </Button>
+                          <Button 
+                            onClick={() => sendCommand("FNC 6\r")}
+                            variant="outline" 
+                            size="sm"
+                          >
+                            FNC 6
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="customCommand">Custom Command</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="customCommand"
+                              placeholder="e.g. FNC 3"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  const command = e.currentTarget.value + '\r';
+                                  sendCommand(command);
+                                  e.currentTarget.value = '';
+                                }
+                              }}
+                            />
+                            <Button 
+                              onClick={() => {
+                                const input = document.getElementById('customCommand') as HTMLInputElement;
+                                if (input.value) {
+                                  sendCommand(input.value + '\r');
+                                  input.value = '';
+                                }
+                              }}
+                              size="sm"
+                            >
+                              Send
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              )}
 
               <Accordion type="multiple" defaultValue={["item-1"]} className="w-full">
                 <AccordionItem value="item-1">
