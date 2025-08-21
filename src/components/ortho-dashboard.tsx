@@ -148,6 +148,37 @@ export function OrthoDashboard() {
   const [targetResult, setTargetResult] = useState<{ target: number; correction: number; unit: "μm" } | null>(null);
   const [targetProgress, setTargetProgress] = useState<{ isWithinTolerance: boolean; error: number; progress: number; unit: "μm" } | null>(null);
 
+  // Upper Axis Three-Phase Workflow State (Step 4)
+  const [upperCurrentPhase, setUpperCurrentPhase] = useState<1 | 2 | 3>(1);
+  
+  // Upper Phase 1: Measure Initial Angular Error
+  const [upperA1_initial, setUpperA1_initial] = useState<number | null>(null);
+  const [upperA2_initial, setUpperA2_initial] = useState<number | null>(null);
+  const [upperTheta_initial, setUpperTheta_initial] = useState<{ value: number; unit: "arcsec" } | null>(null);
+  
+  // Upper Phase 2: Calibrate Adjustment (Find Pivot)
+  const [upperA1_test, setUpperA1_test] = useState<number | null>(null);
+  const [upperA2_test, setUpperA2_test] = useState<number | null>(null);
+  const [upperLeverArmResult, setUpperLeverArmResult] = useState<{ leverArm: number; theta_initial: number; theta_after_test: number; delta_theta: number; unit: "mm" } | null>(null);
+  
+  // Upper Calibration History & Confidence Tracking
+  const [upperCalibrationHistory, setUpperCalibrationHistory] = useState<Array<{
+    leverArm: number;
+    timestamp: number;
+    A1_test: number;
+    A2_test: number;
+    theta_after_test: number;
+  }>>([]);
+  const [upperPivotConfidence, setUpperPivotConfidence] = useState<{
+    level: "high" | "medium" | "low" | "unknown";
+    variation: number;
+    message: string;
+  }>({ level: "unknown", variation: 0, message: "No calibration data yet" });
+
+  // Upper Phase 3: Execute Final Correction
+  const [upperTargetResult, setUpperTargetResult] = useState<{ target: number; correction: number; unit: "μm" } | null>(null);
+  const [upperTargetProgress, setUpperTargetProgress] = useState<{ isWithinTolerance: boolean; error: number; progress: number; unit: "μm" } | null>(null);
+
   const [reportData, setReportData] = useState<ReportData>({
     technician: "Andrew T. Jung",
     axis1Serial: "643237-1-1-X",
@@ -267,6 +298,19 @@ export function OrthoDashboard() {
     setTargetProgress(null);
     setCalibrationHistory([]);
     setPivotConfidence({ level: "unknown", variation: 0, message: "No calibration data yet" });
+    
+    // Reset upper axis three-phase workflow state
+    setUpperCurrentPhase(1);
+    setUpperA1_initial(null);
+    setUpperA2_initial(null);
+    setUpperTheta_initial(null);
+    setUpperA1_test(null);
+    setUpperA2_test(null);
+    setUpperLeverArmResult(null);
+    setUpperTargetResult(null);
+    setUpperTargetProgress(null);
+    setUpperCalibrationHistory([]);
+    setUpperPivotConfidence({ level: "unknown", variation: 0, message: "No calibration data yet" });
     
     if(isConnected) {
       disconnect();
@@ -424,6 +468,24 @@ export function OrthoDashboard() {
     console.log('New confidence:', newConfidence);
     setPivotConfidence(newConfidence);
   }, [calibrationHistory, calculateConfidence]);
+
+  // Update upper axis confidence when calibration history changes
+  useEffect(() => {
+    console.log('Upper calibration history changed:', upperCalibrationHistory);
+    const newConfidence = calculateConfidence(upperCalibrationHistory);
+    console.log('New upper confidence:', newConfidence);
+    setUpperPivotConfidence(newConfidence);
+  }, [upperCalibrationHistory, calculateConfidence]);
+
+  // Update upper axis target progress in Phase 3
+  useEffect(() => {
+    if (upperCurrentPhase === 3 && upperTargetResult && currentReading !== null) {
+      const progress = checkTargetProgress(currentReading, upperTargetResult.target);
+      setUpperTargetProgress(progress);
+    } else {
+      setUpperTargetProgress(null);
+    }
+  }, [upperCurrentPhase, upperTargetResult, currentReading]);
 
   // Use stable calculation for display
   const liveSquaringOrthogonality = stableLiveOrthogonality;
@@ -954,73 +1016,321 @@ export function OrthoDashboard() {
         );
       }
       case "adjustment": {
-        const inSpec = liveOrthogonality !== null && liveOrthogonality.unit === 'arcsec' && Math.abs(liveOrthogonality.value) <= 1;
+        const isCompleted = upperTargetProgress?.isWithinTolerance || false;
         
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Step 4: Mechanical Adjustment</CardTitle>
-              <CardDescription>
-                Using the initial slope from Phase 1 and A-B differential feedback, adjust the axis until it is within ±1 arcsecond specification.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <LiveReadingCard 
+            <Card>
+                <CardHeader>
+                    <CardTitle>Step 4: Upper Axis Adjustment (Three-Phase Method)</CardTitle>
+                    <CardDescription>
+                        Systematic metrology workflow: Measure initial error → Calibrate adjustment → Execute calculated correction
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+              {/* Live Indicator Reading */}
+              <Card>
+                <CardHeader>
+                  <CardTitle as="h3" className="text-base">Current Indicator Reading</CardTitle>
+                  <CardDescription className="text-xs">Live reading from Probe A</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <LiveReadingCard 
                     reading={currentReading}
-                    isConnected={isConnected} 
-                    label="A-B Differential"
-                />
-                
-                    <Card>
-                        <CardHeader>
-                    <CardTitle as="h3" className="text-base">Carriage Position</CardTitle>
-                    <CardDescription className="text-xs">Current position for two-phase calculation.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
+                       isConnected={isConnected} 
+                    label="Live Reading"
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Phase 1: Measure Initial Angular Error */}
+              <Card>
+                <CardHeader>
+                  <CardTitle as="h3" className="text-base">
+                    Phase 1: Measure Initial Angular Error 
+                    <Badge className="ml-2">
+                      {upperCurrentPhase === 1 ? "Active" : upperCurrentPhase > 1 ? "Complete" : "Pending"}
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Record readings at 0mm and {measurementDistance}mm to calculate initial error angle
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="currentPositionAdj">Current Position (mm)</Label>
-                      <Input
-                        id="currentPositionAdj"
-                        type="number"
-                        value={currentPosition}
-                        onChange={(e) => setCurrentPosition(e.target.value)}
-                        placeholder="0"
-                      />
+                      <Label>Reading at 0mm (A1)</Label>
+                      <div className="p-3 border rounded bg-muted/50 text-center">
+                        <p className="text-lg font-semibold">
+                          {upperA1_initial !== null ? upperA1_initial.toFixed(3) : "---"} μm
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          sendCommand("FNC 1\r");
+                          setTimeout(() => setUpperA1_initial(currentReadingRef.current), 300);
+                        }}
+                        disabled={!isConnected || upperCurrentPhase !== 1}
+                        size="sm"
+                        className="w-full"
+                      >
+                        Record A1
+                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
-                
-                {isSimulation && (
-                    <Card>
+                    
+                    <div className="space-y-2">
+                      <Label>Reading at {measurementDistance}mm (A2)</Label>
+                      <div className="p-3 border rounded bg-muted/50 text-center">
+                        <p className="text-lg font-semibold">
+                          {upperA2_initial !== null ? upperA2_initial.toFixed(3) : "---"} μm
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          sendCommand("FNC 1\r");
+                          setTimeout(() => {
+                            const reading = currentReadingRef.current;
+                            setUpperA2_initial(reading);
+                            if (upperA1_initial !== null && reading !== null) {
+                              const result = calculateInitialAngle(upperA1_initial, reading, parseFloat(measurementDistance));
+                              setUpperTheta_initial(result);
+                            }
+                          }, 300);
+                        }}
+                        disabled={!isConnected || upperCurrentPhase !== 1 || upperA1_initial === null}
+                        size="sm"
+                        className="w-full"
+                      >
+                        Record A2
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {upperTheta_initial && (
+                    <div className="p-3 border rounded bg-blue-50 text-center">
+                      <p className="text-sm font-semibold text-blue-700">
+                        ✓ Initial Error: {upperTheta_initial.value.toFixed(2)} arcseconds
+                      </p>
+                    </div>
+                  )}
+                  
+                  {upperTheta_initial && upperCurrentPhase === 1 && (
+                    <Button
+                      onClick={() => setUpperCurrentPhase(2)}
+                      className="w-full"
+                    >
+                      Next Phase →
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Phase 2: Calibrate Adjustment (Find Pivot) */}
+              {upperCurrentPhase >= 2 && (
+                        <Card>
                         <CardHeader>
-                            <CardTitle as="h3" className="text-base">Differential Simulator</CardTitle>
-                            <CardDescription className="text-xs">Use this slider to simulate the A-B differential reading.</CardDescription>
+                    <CardTitle as="h3" className="text-base">
+                      Phase 2: Calibrate Adjustment (Find Pivot)
+                      <Badge className="ml-2">
+                        {upperCurrentPhase === 2 ? "Active" : upperCurrentPhase > 2 ? "Complete" : "Pending"}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Make test adjustment to learn your setup's geometry. Re-record values after large adjustments to check if pivot point changed.
+                    </CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <Slider
-                                value={[currentReading]}
-                                onValueChange={([val]) => setSimulationReading && setSimulationReading(val)}
-                                min={-300}
-                                max={300}
-                                step={1}
-                            />
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      1. At {measurementDistance}mm position, make a deliberate angular adjustment<br/>
+                      2. Record new reading at {measurementDistance}mm<br/>
+                      3. Move back to 0mm and record reading<br/>
+                      4. Calculate lever arm distance
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Test reading at {measurementDistance}mm</Label>
+                        <div className="p-3 border rounded bg-muted/50 text-center">
+                          <p className="text-lg font-semibold">
+                            {upperA2_test !== null ? upperA2_test.toFixed(3) : "---"} μm
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            sendCommand("FNC 1\r");
+                            setTimeout(() => setUpperA2_test(currentReadingRef.current), 300);
+                          }}
+                          disabled={!isConnected || upperCurrentPhase < 2}
+                          size="sm"
+                          className="w-full"
+                        >
+                          Record A2_test
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Test reading at 0mm</Label>
+                        <div className="p-3 border rounded bg-muted/50 text-center">
+                          <p className="text-lg font-semibold">
+                            {upperA1_test !== null ? upperA1_test.toFixed(3) : "---"} μm
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            sendCommand("FNC 1\r");
+                            setTimeout(() => {
+                              const reading = currentReadingRef.current;
+                              setUpperA1_test(reading);
+                              if (upperA1_initial !== null && upperA2_initial !== null && upperA2_test !== null && reading !== null) {
+                                const result = calculateLeverArm(upperA1_initial, upperA2_initial, reading, upperA2_test, parseFloat(measurementDistance));
+                                setUpperLeverArmResult(result);
+                                if (result && upperA2_test !== null) {
+                                  const targetCalc = calculateTargetReading(upperA2_test, result.leverArm, result.theta_after_test);
+                                  setUpperTargetResult(targetCalc);
+                                  
+                                  // Add to calibration history
+                                  const newCalibration = {
+                                    leverArm: result.leverArm,
+                                    timestamp: Date.now(),
+                                    A1_test: reading,
+                                    A2_test: upperA2_test,
+                                    theta_after_test: result.theta_after_test
+                                  };
+                                  console.log('Adding upper calibration to history:', newCalibration);
+                                  setUpperCalibrationHistory(prev => {
+                                    const newHistory = [...prev, newCalibration];
+                                    console.log('New upper calibration history:', newHistory);
+                                    return newHistory;
+                                  });
+                                }
+                              }
+                            }, 300);
+                          }}
+                          disabled={!isConnected || upperCurrentPhase < 2 || upperA2_test === null}
+                          size="sm"
+                          className="w-full"
+                        >
+                          Record A1_test
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {upperLeverArmResult && (
+                      <div className="p-3 border rounded bg-green-50 space-y-1">
+                        <p className="text-sm font-semibold text-green-700">✓ Calibration Complete:</p>
+                        <p className="text-xs text-green-600">Lever Arm: {upperLeverArmResult.leverArm.toFixed(1)} mm</p>
+                        <p className="text-xs text-green-600">Angle after test: {upperLeverArmResult.theta_after_test.toFixed(2)} arcsec</p>
+                      </div>
+                    )}
+                    
+                    {/* Debug Info */}
+                    <div className="p-2 border rounded bg-gray-100 text-gray-800 text-xs font-mono">
+                      <p><strong>Upper Axis Debug Info:</strong></p>
+                      <p>History Count: {upperCalibrationHistory.length}</p>
+                      <p>Confidence: {upperPivotConfidence.level} (±{upperPivotConfidence.variation.toFixed(1)}%)</p>
+                      <p>Lever Arms: [{upperCalibrationHistory.map(h => h.leverArm.toFixed(1)).join(', ')}]</p>
+                      {upperCalibrationHistory.length >= 2 && (
+                        <p>Variation: {((Math.sqrt(upperCalibrationHistory.map(h => h.leverArm).reduce((sum, val, _, arr) => {
+                          const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
+                          return sum + Math.pow(val - avg, 2);
+                        }, 0) / upperCalibrationHistory.length) / (upperCalibrationHistory.map(h => h.leverArm).reduce((s, v) => s + v, 0) / upperCalibrationHistory.length)) * 100).toFixed(1)}%</p>
+                      )}
+                    </div>
+                    
+                    {/* Confidence Display */}
+                    {upperPivotConfidence.level !== "unknown" && (
+                      <div className={`p-3 border-2 rounded space-y-1 ${
+                        upperPivotConfidence.level === "high" ? "bg-green-100 border-green-400 text-green-800" :
+                        upperPivotConfidence.level === "medium" ? "bg-yellow-100 border-yellow-400 text-yellow-800" : 
+                        "bg-red-100 border-red-400 text-red-800"
+                      }`}>
+                        <div className="flex justify-between items-center">
+                          <p className="text-sm font-semibold">Pivot Confidence: {upperPivotConfidence.level.toUpperCase()}</p>
+                          <span className="text-xs">±{upperPivotConfidence.variation.toFixed(1)}%</span>
+                        </div>
+                        <p className="text-xs">{upperPivotConfidence.message}</p>
+                        <p className="text-xs">Calibrations: {upperCalibrationHistory.length}</p>
+                      </div>
+                    )}
+                    
+                    {upperLeverArmResult && upperCurrentPhase === 2 && (
+                      <Button
+                        onClick={() => setUpperCurrentPhase(3)}
+                        className="w-full"
+                      >
+                        Next Phase →
+                      </Button>
+                    )}
                         </CardContent>
-                    </Card>
-                )}
+                        </Card>
+                    )}
 
+              {/* Phase 3: Execute Final Correction */}
+              {upperCurrentPhase >= 3 && upperTargetResult && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle as="h3" className="text-base">
+                      Phase 3: Execute Final Correction
+                      <Badge className="ml-2">Active</Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Adjust upper axis until reading matches calculated target
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Move carriage to {measurementDistance}mm and adjust upper axis until target reached
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <Label>Current Reading</Label>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {currentReading?.toFixed(3)} μm
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <Label>Target Reading</Label>
+                        <div className="text-2xl font-bold text-green-600">
+                          {upperTargetResult.target.toFixed(3)} μm
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {upperTargetProgress && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress to Target</span>
+                          <span>Error: {upperTargetProgress.error.toFixed(1)} μm</span>
+                        </div>
+                        <Progress value={upperTargetProgress.progress} className="h-2" />
+                        
+                        {upperTargetProgress.isWithinTolerance ? (
+                          <div className="p-3 border rounded bg-green-50 text-center">
+                            <p className="text-sm font-semibold text-green-700">
+                              🎯 Target Achieved! Upper axis aligned within tolerance.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="p-3 border rounded bg-yellow-50 text-center">
+                            <p className="text-sm text-yellow-700">
+                              Adjust upper axis to reduce error to target reading
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                        </Card>
+                    )}
 
-                    <AdjustmentBar 
-                    result={liveOrthogonality} 
-                    spec={1} 
-                    />
-            </CardContent>
-            <CardFooter className="justify-between">
-              <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-              <Button onClick={handleNextStep} disabled={!inSpec} className="bg-primary hover:bg-primary/90">
-                  {inSpec ? "Adjustment Complete" : "Within Spec to Proceed"} <ChevronRight />
-              </Button>
-            </CardFooter>
-          </Card>
+                </CardContent>
+                <CardFooter className="justify-between">
+                    <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
+                    <Button onClick={handleNextStep} disabled={!isCompleted} className="bg-primary hover:bg-primary/90">
+                        {isCompleted ? "Proceed to Final Measurements" : "Complete Alignment to Proceed"} <ChevronRight />
+                    </Button>
+                </CardFooter>
+            </Card>
         );
       }
       case "finalMeasurement": {
