@@ -299,3 +299,32 @@ export function calculateCompensatedOrthogonality(
     unit: "arcsec"
   };
 }
+
+/**
+ * Calculate live adjustment tolerance based on alignment part number and measurement distance
+ * 
+ * @param alignmentPartNumber PA5 or PA10 specification
+ * @param measurementDistance Distance in mm
+ * @returns Tolerance in microns for live adjustment feedback
+ */
+export function calculateAdjustmentTolerance(
+  alignmentPartNumber: string,
+  measurementDistance: number
+): number {
+  const isPa5 = alignmentPartNumber.toUpperCase().includes("PA5");
+  const isPa10 = alignmentPartNumber.toUpperCase().includes("PA10");
+  
+  if (measurementDistance < 150) {
+    // Use micron tolerances for short distances
+    if (isPa5) return 3; // 3 microns for PA5
+    if (isPa10) return 7; // 7 microns for PA10
+    return 5; // Default fallback
+  } else {
+    // Convert arcsecond specs to microns for the given distance
+    // tolerance_microns = tan(tolerance_arcsec * π/180 / 3600) * distance_mm * 1000
+    const arcsecTolerance = isPa5 ? 5 : isPa10 ? 10 : 5; // Default to PA5
+    const radians = (arcsecTolerance * Math.PI) / (180 * 3600);
+    const toleranceMicrons = Math.tan(radians) * measurementDistance * 1000;
+    return toleranceMicrons;
+  }
+}

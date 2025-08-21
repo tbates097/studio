@@ -52,6 +52,7 @@ import {
   checkTargetProgress,
   calculateBestFitLine,
   calculateCompensatedOrthogonality,
+  calculateAdjustmentTolerance,
   type MeasurementPoint
 } from "@/lib/calculations";
 import { useToast } from "@/hooks/use-toast";
@@ -361,7 +362,7 @@ export function OrthoDashboard() {
         if (squaringMeasurements.length >= 2 && measurements.length >= 2) {
             const result = calculateCompensatedOrthogonality(squaringMeasurements, measurements);
             if (result) {
-                setFinalResult({
+                 setFinalResult({
                     value: result.compensatedOrthogonality,
                     unit: "arcsec"
                 });
@@ -501,12 +502,14 @@ export function OrthoDashboard() {
   // Update upper axis target progress in Phase 3
   useEffect(() => {
     if (upperCurrentPhase === 3 && upperTargetResult && currentReading !== null) {
-      const progress = checkTargetProgress(currentReading, upperTargetResult.target);
+      // Calculate dynamic tolerance based on PA5/PA10 spec and measurement distance
+      const tolerance = calculateAdjustmentTolerance(reportData.alignmentPartNumber, parseFloat(measurementDistance));
+      const progress = checkTargetProgress(currentReading, upperTargetResult.target, tolerance);
       setUpperTargetProgress(progress);
     } else {
       setUpperTargetProgress(null);
     }
-  }, [upperCurrentPhase, upperTargetResult, currentReading]);
+  }, [upperCurrentPhase, upperTargetResult, currentReading, reportData.alignmentPartNumber, measurementDistance]);
 
   // Use stable calculation for display
   const liveSquaringOrthogonality = stableLiveOrthogonality;
@@ -1040,14 +1043,14 @@ export function OrthoDashboard() {
         const isCompleted = upperTargetProgress?.isWithinTolerance || false;
         
         return (
-            <Card>
-                <CardHeader>
+          <Card>
+            <CardHeader>
                     <CardTitle>Step 4: Upper Axis Adjustment (Three-Phase Method)</CardTitle>
-                    <CardDescription>
+              <CardDescription>
                         Systematic metrology workflow: Measure initial error → Calibrate adjustment → Execute calculated correction
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               {/* Live Indicator Reading */}
               <Card>
                 <CardHeader>
@@ -1055,9 +1058,9 @@ export function OrthoDashboard() {
                   <CardDescription className="text-xs">Live reading from Probe A</CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <LiveReadingCard 
+                <LiveReadingCard 
                     reading={currentReading}
-                       isConnected={isConnected} 
+                    isConnected={isConnected} 
                     label="Live Reading"
                   />
                 </CardContent>
@@ -1147,7 +1150,7 @@ export function OrthoDashboard() {
 
               {/* Phase 2: Calibrate Adjustment (Find Pivot) */}
               {upperCurrentPhase >= 2 && (
-                        <Card>
+                    <Card>
                         <CardHeader>
                     <CardTitle as="h3" className="text-base">
                       Phase 2: Calibrate Adjustment (Find Pivot)
@@ -1282,8 +1285,8 @@ export function OrthoDashboard() {
                       </Button>
                     )}
                         </CardContent>
-                        </Card>
-                    )}
+                    </Card>
+                )}
 
               {/* Phase 3: Execute Final Correction */}
               {upperCurrentPhase >= 3 && upperTargetResult && (
@@ -1341,17 +1344,17 @@ export function OrthoDashboard() {
                       </div>
                     )}
                   </CardContent>
-                        </Card>
-                    )}
+                    </Card>
+                )}
 
-                </CardContent>
-                <CardFooter className="justify-between">
-                    <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
+            </CardContent>
+            <CardFooter className="justify-between">
+              <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
                     <Button onClick={handleNextStep} disabled={!isCompleted} className="bg-primary hover:bg-primary/90">
                         {isCompleted ? "Proceed to Final Measurements" : "Complete Alignment to Proceed"} <ChevronRight />
-                    </Button>
-                </CardFooter>
-            </Card>
+              </Button>
+            </CardFooter>
+          </Card>
         );
       }
       case "finalMeasurement": {
