@@ -49,7 +49,10 @@ import {
   calculateInitialAngle,
   calculateLeverArm,
   calculateTargetReading,
-  checkTargetProgress
+  checkTargetProgress,
+  calculateBestFitLine,
+  calculateCompensatedOrthogonality,
+  type MeasurementPoint
 } from "@/lib/calculations";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "./icons/logo";
@@ -105,6 +108,14 @@ export function OrthoDashboard() {
   const [squaringMeasurements, setSquaringMeasurements] = useState<Measurement[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [finalResult, setFinalResult] = useState<OrthogonalityResult>(null);
+  const [detailedResults, setDetailedResults] = useState<{
+    compensatedOrthogonality: number;
+    rawOrthogonality: number;
+    artifactError: number;
+    referenceFit: { slope: number; slopeArcsec: number; rSquared: number; };
+    finalFit: { slope: number; slopeArcsec: number; rSquared: number; };
+    unit: "arcsec";
+  } | null>(null);
   const [squaringZero, setSquaringZero] = useState<number | null>(null);
   const [squaringResult, setSquaringResult] = useState<OrthogonalityResult>(null);
   const [adjustmentZero, setAdjustmentZero] = useState<number | null>(null);
@@ -272,6 +283,7 @@ export function OrthoDashboard() {
     setSquaringMeasurements([]);
     setMeasurements([]);
     setFinalResult(null);
+    setDetailedResults(null);
     setAdjustmentZero(null);
     setSquaringZero(null);
     setSquaringResult(null);
@@ -345,8 +357,17 @@ export function OrthoDashboard() {
         setMeasurements([]);
         setStep("finalMeasurement");
     } else if (step === "finalMeasurement") {
-        // For live adjustment workflow, we don't need multi-point measurements
-        // The live feedback is handled by the liveOrthogonality calculation
+        // Calculate final compensated orthogonality from Step 3 and Step 5 measurements
+        if (squaringMeasurements.length >= 2 && measurements.length >= 2) {
+            const result = calculateCompensatedOrthogonality(squaringMeasurements, measurements);
+            if (result) {
+                setFinalResult({
+                    value: result.compensatedOrthogonality,
+                    unit: "arcsec"
+                });
+                setDetailedResults(result);
+            }
+        }
         setStep("results");
     }
   };
@@ -1384,7 +1405,7 @@ export function OrthoDashboard() {
                 <CardContent className="space-y-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle as="h3" className="text-lg font-medium">Compensated Result</CardTitle>
+                            <CardTitle as="h3" className="text-lg font-medium">Compensated Orthogonality</CardTitle>
                             <Calculator className="w-6 h-6 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="flex flex-col items-center justify-center h-32">
@@ -1396,6 +1417,53 @@ export function OrthoDashboard() {
                             </p>
                         </CardContent>
                     </Card>
+                    
+                    {detailedResults && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle as="h3" className="text-lg font-medium">Calculation Breakdown</CardTitle>
+                                <CardDescription>Detailed analysis of measurement compensation</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                                    <div className="p-3 border rounded">
+                                        <p className="text-sm text-muted-foreground">Raw Orthogonality</p>
+                                        <p className="text-xl font-semibold">{detailedResults.rawOrthogonality.toFixed(3)}"</p>
+                                        <p className="text-xs text-muted-foreground">Before compensation</p>
+                                    </div>
+                                    <div className="p-3 border rounded">
+                                        <p className="text-sm text-muted-foreground">Artifact Error</p>
+                                        <p className="text-xl font-semibold">{detailedResults.artifactError.toFixed(3)}"</p>
+                                        <p className="text-xs text-muted-foreground">Reference face slope</p>
+                                    </div>
+                                    <div className="p-3 border rounded bg-green-50">
+                                        <p className="text-sm text-muted-foreground">Final Result</p>
+                                        <p className="text-xl font-semibold text-green-700">{detailedResults.compensatedOrthogonality.toFixed(3)}"</p>
+                                        <p className="text-xs text-muted-foreground">Compensated orthogonality</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div className="p-3 border rounded bg-blue-50">
+                                        <p className="font-semibold text-blue-700">Step 3: Reference Measurements</p>
+                                        <p>Slope: {detailedResults.referenceFit.slope.toFixed(3)} μm/mm</p>
+                                        <p>Angle: {detailedResults.referenceFit.slopeArcsec.toFixed(3)}"</p>
+                                        <p>R²: {detailedResults.referenceFit.rSquared.toFixed(3)}</p>
+                                    </div>
+                                    <div className="p-3 border rounded bg-purple-50">
+                                        <p className="font-semibold text-purple-700">Step 5: Final Measurements</p>
+                                        <p>Slope: {detailedResults.finalFit.slope.toFixed(3)} μm/mm</p>
+                                        <p>Angle: {detailedResults.finalFit.slopeArcsec.toFixed(3)}"</p>
+                                        <p>R²: {detailedResults.finalFit.rSquared.toFixed(3)}</p>
+                                    </div>
+                                </div>
+                                <div className="p-3 border rounded bg-gray-50 text-center">
+                                    <p className="text-sm text-muted-foreground">
+                                        Calculation: {detailedResults.rawOrthogonality.toFixed(3)}" - ({detailedResults.artifactError.toFixed(3)}") = {detailedResults.compensatedOrthogonality.toFixed(3)}"
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                      <ResultChart
                         isUITier
                         travelDistance={parseFloat(measurementDistance)}

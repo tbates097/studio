@@ -156,3 +156,146 @@ export function checkTargetProgress(
     unit: "μm"
   };
 }
+
+// ===== BEST-FIT LINE AND COMPENSATED ORTHOGONALITY CALCULATIONS =====
+
+/**
+ * Measurement data point structure
+ */
+export interface MeasurementPoint {
+  position: number; // mm
+  reading: number;  // μm
+}
+
+/**
+ * Calculate best-fit line through measurement points using least squares method
+ * 
+ * @param measurements Array of measurement points
+ * @returns Object with slope (μm/mm), intercept (μm), and correlation coefficient, or null if invalid
+ */
+export function calculateBestFitLine(
+  measurements: MeasurementPoint[]
+): {
+  slope: number;        // μm/mm
+  intercept: number;    // μm
+  rSquared: number;     // correlation coefficient (0-1)
+  slopeArcsec: number;  // slope converted to arcseconds
+  unit: "arcsec"
+} | null {
+  if (!measurements || measurements.length < 2) {
+    return null;
+  }
+
+  const n = measurements.length;
+  
+  // Calculate sums for least squares method
+  let sumX = 0;      // sum of positions
+  let sumY = 0;      // sum of readings  
+  let sumXY = 0;     // sum of position × reading
+  let sumXX = 0;     // sum of position²
+  let sumYY = 0;     // sum of reading²
+
+  for (const point of measurements) {
+    sumX += point.position;
+    sumY += point.reading;
+    sumXY += point.position * point.reading;
+    sumXX += point.position * point.position;
+    sumYY += point.reading * point.reading;
+  }
+
+  // Calculate slope and intercept using least squares formulas
+  const denominator = n * sumXX - sumX * sumX;
+  if (Math.abs(denominator) < 1e-10) {
+    return null; // Avoid division by zero
+  }
+
+  const slope = (n * sumXY - sumX * sumY) / denominator;           // μm/mm
+  const intercept = (sumY - slope * sumX) / n;                     // μm
+
+  // Calculate R-squared (coefficient of determination)
+  const meanY = sumY / n;
+  let ssRes = 0; // sum of squares of residuals
+  let ssTot = 0; // total sum of squares
+
+  for (const point of measurements) {
+    const predicted = slope * point.position + intercept;
+    ssRes += Math.pow(point.reading - predicted, 2);
+    ssTot += Math.pow(point.reading - meanY, 2);
+  }
+
+  const rSquared = ssTot > 0 ? 1 - (ssRes / ssTot) : 1;
+
+  // Convert slope to arcseconds
+  // slope is in μm/mm, convert to radians then arcseconds
+  const slopeArcsec = Math.atan(slope * 1e-3) * 206265;
+
+  return {
+    slope,
+    intercept,
+    rSquared: Math.max(0, Math.min(1, rSquared)), // Clamp between 0 and 1
+    slopeArcsec,
+    unit: "arcsec"
+  };
+}
+
+/**
+ * Calculate compensated orthogonality by removing artifact alignment error
+ * 
+ * @param referenceMeasurements Step 3 measurements (artifact reference face)
+ * @param finalMeasurements Step 5 measurements (perpendicular face)
+ * @returns Compensated orthogonality result with artifact error removed, or null if invalid
+ */
+export function calculateCompensatedOrthogonality(
+  referenceMeasurements: MeasurementPoint[],
+  finalMeasurements: MeasurementPoint[]
+): {
+  compensatedOrthogonality: number;  // arcseconds
+  rawOrthogonality: number;          // arcseconds  
+  artifactError: number;             // arcseconds
+  referenceFit: {
+    slope: number;
+    slopeArcsec: number;
+    rSquared: number;
+  };
+  finalFit: {
+    slope: number;
+    slopeArcsec: number;
+    rSquared: number;
+  };
+  unit: "arcsec"
+} | null {
+  // Calculate best-fit lines for both measurement sets
+  const referenceFit = calculateBestFitLine(referenceMeasurements);
+  const finalFit = calculateBestFitLine(finalMeasurements);
+
+  if (!referenceFit || !finalFit) {
+    return null;
+  }
+
+  // Raw orthogonality = slope of perpendicular face measurements
+  const rawOrthogonality = finalFit.slopeArcsec;
+
+  // Artifact error = slope of reference face measurements  
+  const artifactError = referenceFit.slopeArcsec;
+
+  // Compensated orthogonality = raw - artifact error
+  // This removes the artifact misalignment from the measurement
+  const compensatedOrthogonality = rawOrthogonality - artifactError;
+
+  return {
+    compensatedOrthogonality,
+    rawOrthogonality,
+    artifactError,
+    referenceFit: {
+      slope: referenceFit.slope,
+      slopeArcsec: referenceFit.slopeArcsec,
+      rSquared: referenceFit.rSquared
+    },
+    finalFit: {
+      slope: finalFit.slope,
+      slopeArcsec: finalFit.slopeArcsec,
+      rSquared: finalFit.rSquared
+    },
+    unit: "arcsec"
+  };
+}
