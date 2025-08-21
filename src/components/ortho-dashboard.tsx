@@ -797,7 +797,7 @@ export function OrthoDashboard() {
                     )}
                     
                     {/* Debug Info */}
-                    <div className="p-2 border rounded bg-gray-100 text-xs font-mono">
+                    <div className="p-2 border rounded bg-gray-100 text-gray-800 text-xs font-mono">
                       <p><strong>Debug Info:</strong></p>
                       <p>History Count: {calibrationHistory.length}</p>
                       <p>Confidence: {pivotConfidence.level} (±{pivotConfidence.variation.toFixed(1)}%)</p>
