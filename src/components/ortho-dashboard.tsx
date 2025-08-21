@@ -797,18 +797,25 @@ export function OrthoDashboard() {
                     )}
                     
                     {/* Debug Info */}
-                    <div className="p-2 border rounded bg-gray-50 text-xs">
-                      <p>Debug - History Count: {calibrationHistory.length}</p>
-                      <p>Debug - Confidence Level: {pivotConfidence.level}</p>
-                      <p>Debug - Message: {pivotConfidence.message}</p>
+                    <div className="p-2 border rounded bg-gray-100 text-xs font-mono">
+                      <p><strong>Debug Info:</strong></p>
+                      <p>History Count: {calibrationHistory.length}</p>
+                      <p>Confidence: {pivotConfidence.level} (±{pivotConfidence.variation.toFixed(1)}%)</p>
+                      <p>Lever Arms: [{calibrationHistory.map(h => h.leverArm.toFixed(1)).join(', ')}]</p>
+                      {calibrationHistory.length >= 2 && (
+                        <p>Variation: {((Math.sqrt(calibrationHistory.map(h => h.leverArm).reduce((sum, val, _, arr) => {
+                          const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
+                          return sum + Math.pow(val - avg, 2);
+                        }, 0) / calibrationHistory.length) / (calibrationHistory.map(h => h.leverArm).reduce((s, v) => s + v, 0) / calibrationHistory.length)) * 100).toFixed(1)}%</p>
+                      )}
                     </div>
                     
                     {/* Confidence Display */}
                     {pivotConfidence.level !== "unknown" && (
-                      <div className={`p-3 border rounded space-y-1 ${
-                        pivotConfidence.level === "high" ? "bg-green-50 border-green-200" :
-                        pivotConfidence.level === "medium" ? "bg-yellow-50 border-yellow-200" : 
-                        "bg-red-50 border-red-200"
+                      <div className={`p-3 border-2 rounded space-y-1 ${
+                        pivotConfidence.level === "high" ? "bg-green-100 border-green-400 text-green-800" :
+                        pivotConfidence.level === "medium" ? "bg-yellow-100 border-yellow-400 text-yellow-800" : 
+                        "bg-red-100 border-red-400 text-red-800"
                       }`}>
                         <div className="flex justify-between items-center">
                           <p className="text-sm font-semibold">Pivot Confidence: {pivotConfidence.level.toUpperCase()}</p>
