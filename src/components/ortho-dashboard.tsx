@@ -923,7 +923,7 @@ export function OrthoDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <LiveReadingCard reading={currentReading} isConnected={isConnected} onZero={() => setSquaringMeasurements([{ position: 0, reading: currentReading }])} />
+              <LiveReadingCard reading={currentReading} isConnected={isConnected} />
               <div className="space-y-2">
                 <Label>Measurement Progress</Label>
                 <Progress value={progress} />
@@ -1034,7 +1034,7 @@ export function OrthoDashboard() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <LiveReadingCard reading={currentReading} isConnected={isConnected} onZero={() => setMeasurements([{ position: 0, reading: currentReading }])} />
+                    <LiveReadingCard reading={currentReading} isConnected={isConnected} />
                     <div className="space-y-2">
                         <Label>Measurement Progress</Label>
                         <Progress value={progress} />
@@ -1141,12 +1141,10 @@ export function OrthoDashboard() {
 function LiveReadingCard({
     reading, 
     isConnected, 
-    onZero,
     label = "Live Reading",
 }: {
     reading: number, 
     isConnected: boolean, 
-    onZero?: () => void,
     label?: string,
 }) {
 
@@ -1162,13 +1160,6 @@ function LiveReadingCard({
                     <span className="text-xl text-muted-foreground">μm</span>
                 </p>
             </CardContent>
-             {onZero && (
-                <CardFooter>
-                    <Button onClick={onZero} className="w-full" variant="outline" disabled={!isConnected}>
-                        Zero Indicator
-                    </Button>
-                </CardFooter>
-            )}
         </Card>
     )
 }
