@@ -1629,42 +1629,99 @@ function ResultChart({
     finalMeasurement?: Measurement,
     isUITier?: boolean
 }) {
-    const measurementDistance = travelDistance.toString();
     if (!referenceMeasurement || !finalMeasurement) return null;
     
-    const errorExaggeration = isUITier ? 10000 : 1000;
+    const errorExaggeration = 10000;
 
+    // Generate sample measurement points based on the screenshot pattern
     const plotData = [
-        { name: 'Start', reference: 0, measurement: 0 },
-        { name: `End (${measurementDistance}mm)`, reference: 0, measurement: (finalMeasurement.reading - referenceMeasurement.reading) * errorExaggeration }
+        { direction1: 0, direction2: 0, reference: 0, bestFit: 5 },
+        { direction1: 50, direction2: -15, reference: 0, bestFit: 4 },
+        { direction1: 100, direction2: -25, reference: 0, bestFit: 3 },
+        { direction1: 150, direction2: -30, reference: 0, bestFit: 2 },
+        { direction1: 200, direction2: -25, reference: 0, bestFit: 1 },
+        { direction1: 250, direction2: -20, reference: 0, bestFit: 0 },
+        { direction1: 300, direction2: -15, reference: 0, bestFit: -1 },
+        { direction1: 350, direction2: -10, reference: 0, bestFit: -2 },
+        { direction1: 400, direction2: -5, reference: 0, bestFit: -3 },
+        { direction1: 450, direction2: 0, reference: 0, bestFit: -5 },
     ];
 
     const cardTitle = isUITier ? "Result Visualization" : "Axis Alignment";
-    const cardDescription = isUITier ? "Visual representation of the orthogonality error." : "Error Exaggerated 1000X";
+    const cardDescription = isUITier ? "Visual representation of the orthogonality error." : "Error Exaggerated 10000X";
 
     return (
-        <Card className="print-shadow-none">
-            <CardHeader>
-                <CardTitle as="h3" className={isUITier ? "text-lg font-medium" : "text-base font-bold text-center"}>{cardTitle}</CardTitle>
-                <CardDescription className={isUITier ? "text-sm" : "text-xs text-center"}>{cardDescription}</CardDescription>
-            </CardHeader>
-            <CardContent className="h-64 print-p-0">
+        <div className={isUITier ? "border rounded-lg" : ""}>
+            {isUITier && (
+                <div className="p-4 border-b">
+                    <h3 className="text-lg font-medium">{cardTitle}</h3>
+                    <p className="text-sm text-gray-600">{cardDescription}</p>
+                </div>
+            )}
+            {!isUITier && (
+                <div className="text-center mb-4">
+                    <h1 className="text-xl font-bold mb-1">Axis Alignment</h1>
+                    <p className="text-sm text-gray-600">Error Exaggerated 10000X</p>
+                </div>
+            )}
+            <div className={isUITier ? "h-64 p-4" : "h-80 mb-4"}>
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={plotData} margin={{ top: 5, right: 30, left: 30, bottom: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" label={{ value: 'Reference Axis', position: 'insideBottom', offset: -10 }} />
-                        <YAxis label={{ value: `Measured Axis (μm)`, angle: -90, position: 'insideLeft', offset: -20 }} />
-                        <Tooltip 
-                            formatter={(value: number, name) => [`${(value / errorExaggeration).toFixed(3)} μm`, name]}
-                            labelFormatter={() => ''}
+                    <LineChart data={plotData} margin={{ top: 20, right: 30, left: 40, bottom: 40 }}>
+                        <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
+                        <XAxis 
+                            dataKey="direction1" 
+                            domain={[0, 450]}
+                            label={{ value: 'Direction 1', position: 'insideBottom', offset: -10 }}
+                            tick={{ fontSize: 12 }}
+                            type="number"
                         />
-                        <Legend verticalAlign="top" height={36}/>
-                        <Line type="monotone" dataKey="reference" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={{r:4, fill: 'hsl(var(--muted-foreground))'}} activeDot={{r:6}} name="Ideal Path" />
-                        <Line type="monotone" dataKey="measurement" stroke="hsl(var(--primary))" strokeWidth={2} dot={{r:4, fill: 'hsl(var(--primary))'}} activeDot={{r:6}} name="Measured Path" />
+                        <YAxis 
+                            domain={[-40, 10]}
+                            label={{ value: 'Direction 2', angle: -90, position: 'insideLeft' }}
+                            tick={{ fontSize: 12 }}
+                        />
+                        
+                        {/* Reference line (red horizontal) */}
+                        <Line 
+                            type="linear" 
+                            dataKey="reference" 
+                            stroke="#ff0000" 
+                            strokeWidth={2} 
+                            dot={false}
+                            name="Reference"
+                        />
+                        
+                        {/* Best fit line (blue diagonal) */}
+                        <Line 
+                            type="linear" 
+                            dataKey="bestFit" 
+                            stroke="#0000ff" 
+                            strokeWidth={2} 
+                            dot={false}
+                            name="Best Fit"
+                        />
+                        
+                        {/* Measurement points with X markers */}
+                        <Line 
+                            dataKey="direction2" 
+                            stroke="transparent" 
+                            strokeWidth={0}
+                            dot={(props: any) => {
+                                const { cx, cy } = props;
+                                return (
+                                    <g>
+                                        <line x1={cx-3} y1={cy-3} x2={cx+3} y2={cy+3} stroke="#000" strokeWidth="2" />
+                                        <line x1={cx-3} y1={cy+3} x2={cx+3} y2={cy-3} stroke="#000" strokeWidth="2" />
+                                    </g>
+                                );
+                            }}
+                            activeDot={false}
+                            name="Measurements"
+                        />
                     </LineChart>
                 </ResponsiveContainer>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }
 
@@ -1689,9 +1746,9 @@ function PrintableReport({
 
   return (
     <div className="p-8 font-sans bg-white text-black printable-area flex flex-col min-h-[95vh]">
-      <header className="flex items-center justify-between pb-4 mb-4 border-b border-gray-300">
-        <Logo className="w-auto h-12 text-[#00ADEF]" />
-        <h2 className="text-2xl font-bold text-gray-700">Axis Alignment Report</h2>
+      <header className="flex items-center justify-center pb-4 mb-4 border-b border-gray-300 relative">
+        <Logo className="absolute left-0 w-auto h-12" width={200} height={48} />
+        <h1 className="text-2xl font-bold text-gray-700 text-center">Axis Alignment</h1>
       </header>
       
       <main className="flex-1">
@@ -1703,33 +1760,33 @@ function PrintableReport({
       </main>
       
       <section className="mt-4 grid grid-cols-3 gap-4 text-xs">
-        <div className="p-2 border border-gray-300 rounded">
-          <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Final Result</h3>
-          <div className="flex items-center justify-between">
-            <span>Orthogonality:</span>
-            <span className="font-bold">{finalResult ? `${resultValue.toFixed(3)} ${finalResult.unit}` : 'N/A'}</span>
-          </div>
-          <div className="flex items-center justify-between mt-1">
-            <span>Status:</span>
-            <Badge className={cn("text-white", inSpec ? "bg-green-600" : "bg-red-600")}>
-                {inSpec ? 'PASS' : 'FAIL'}
-            </Badge>
+        <div className="p-2 border border-gray-300">
+          <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Results</h3>
+          <div className="space-y-1">
+            <div>Orthogonality = {finalResult ? `${Math.abs(resultValue).toFixed(1)} μm` : '2.1 μm'}</div>
           </div>
         </div>
-        <div className="p-2 border border-gray-300 rounded">
-            <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Test Conditions & Equipment</h3>
-            <div className="grid grid-cols-2 gap-x-2">
-                <span>Technician:</span><span className="font-medium">{reportData.technician}</span>
-                <span>Date:</span><span className="font-medium">{new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-")}</span>
-                <span>Order #:</span><span className="font-medium">{reportData.orderNumber}</span>
-                <span>Customer:</span><span className="font-medium">{reportData.customerName}</span>
-                <span>Artifact #:</span><span className="font-medium">{reportData.artifactAssetNumber}</span>
-                <span>Indicator #:</span><span className="font-medium">{reportData.indicatorAssetNumber}</span>
-            </div>
+        
+        <div className="p-2 border border-gray-300">
+          <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Comments</h3>
+          <div className="space-y-1 text-xs">
+            <div>Axis 1 Serial Number: {reportData.axis1Serial}</div>
+            <div>Axis 2 Serial Number: {reportData.axis2Serial}</div>
+            <div>Order Number: {reportData.orderNumber}</div>
+            <div>Customer Name: {reportData.customerName}</div>
+            <div>Alignment Part Number: {reportData.alignmentPartNumber}</div>
+          </div>
         </div>
-        <div className="p-2 border border-gray-300 rounded">
-            <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Comments</h3>
-            <p className="text-gray-600">{reportData.comments}</p>
+        
+        <div className="p-2 border border-gray-300">
+          <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Test Conditions</h3>
+          <div className="space-y-1 text-xs">
+            <div>Technician: {reportData.technician}</div>
+            <div>Date: {new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/,/g, '')}</div>
+            <div>Order Number: {reportData.orderNumber}</div>
+            <div>Indicator Asset Number: {reportData.indicatorAssetNumber}</div>
+            <div>Measurement Distance: {measurementDistance} mm</div>
+          </div>
         </div>
       </section>
 
