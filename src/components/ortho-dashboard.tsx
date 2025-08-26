@@ -1472,6 +1472,8 @@ export function OrthoDashboard() {
                         travelDistance={parseFloat(measurementDistance)}
                         finalMeasurement={measurements[measurements.length - 1]}
                         referenceMeasurement={measurements[0]}
+                        measurements={measurements}
+                        squaringMeasurements={squaringMeasurements}
                     />
                 </CardContent>
                 <CardFooter className="justify-between">
@@ -1622,54 +1624,41 @@ function ResultChart({
     travelDistance,
     referenceMeasurement,
     finalMeasurement,
+    measurements = [],
+    squaringMeasurements = [],
     isUITier = false,
 }: {
     travelDistance: number,
     referenceMeasurement?: Measurement,
     finalMeasurement?: Measurement,
+    measurements?: Measurement[],
+    squaringMeasurements?: Measurement[],
     isUITier?: boolean
 }) {
     // Generate chart data from actual measurements
     const generateChartData = () => {
-        if (!referenceMeasurement || !finalMeasurement) {
+        if (!squaringMeasurements || squaringMeasurements.length === 0 || !measurements || measurements.length === 0) {
             // No measurements available - return empty array
             return [];
         }
 
-        // Calculate the orthogonality pattern based on actual measurements
-        const startValue = referenceMeasurement.reading;
-        const endValue = finalMeasurement.reading;
-        const distance = travelDistance;
+        // Combine reference measurements (blue line) and orthogonality measurements (red line)
+        const allPositions = new Set([
+            ...squaringMeasurements.map(m => m.position),
+            ...measurements.map(m => m.position)
+        ]);
         
-        // Create L-shape pattern: sharp drop followed by horizontal continuation
-        const data = [];
-        const numPoints = 10;
-        
-        for (let i = 0; i < numPoints; i++) {
-            const position = (i / (numPoints - 1)) * distance;
+        return Array.from(allPositions).sort((a, b) => a - b).map(position => {
+            const referencePoint = squaringMeasurements.find(m => m.position === position);
+            const measurementPoint = measurements.find(m => m.position === position);
             
-            if (i < numPoints / 2) {
-                // First half: sharp drop
-                const progress = i / (numPoints / 2);
-                const value = startValue - (startValue - endValue) * progress;
-                data.push({
-                    position,
-                    reference: value,
-                    measurement: value,
-                    bestFit: value
-                });
-            } else {
-                // Second half: horizontal continuation
-                data.push({
-                    position,
-                    reference: endValue,
-                    measurement: endValue,
-                    bestFit: endValue
-                });
-            }
-        }
-        
-        return data;
+            return {
+                position,
+                reference: referencePoint?.reading || 0,
+                measurement: measurementPoint?.reading || 0,
+                bestFit: measurementPoint?.reading || 0
+            };
+        });
     };
 
     const chartData = generateChartData();
@@ -1804,6 +1793,7 @@ function PrintableReport({
             travelDistance={parseFloat(measurementDistance)}
             finalMeasurement={finalMeasurement}
             referenceMeasurement={referenceMeasurement}
+            measurements={[]} // TODO: Pass actual measurements array
         />
       </main>
       
