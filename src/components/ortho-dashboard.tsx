@@ -1495,35 +1495,21 @@ function ResultChart({
             return [];
         }
 
-        // Create the L-shape pattern like test-chart.html
-        // Blue line (reference): shows the reference measurement slope - drops from high to low
-        // Red line (measurement): shows orthogonality measurement - continues horizontally from corner
+        // Create L-shape: reference line vertical, measurement line horizontal
+        // Shift both sets so their first point = 0, then plot reference vertically and measurement horizontally
         
-        const referenceStart = squaringMeasurements[0]?.reading || 0;
-        const referenceEnd = squaringMeasurements[squaringMeasurements.length - 1]?.reading || 0;
-        const measurementStart = measurements[0]?.reading || 0;
-        const measurementEnd = measurements[measurements.length - 1]?.reading || 0;
+        const referenceShift = squaringMeasurements[0]?.reading || 0;
+        const measurementShift = measurements[0]?.reading || 0;
         
-        return [
-            {
-                position: 0,
-                reference: referenceStart,
-                measurement: measurementStart,
-                bestFit: measurementStart
-            },
-            {
-                position: travelDistance / 2,
-                reference: referenceEnd,
-                measurement: measurementStart,
-                bestFit: measurementStart
-            },
-            {
-                position: travelDistance,
-                reference: referenceEnd,
-                measurement: measurementEnd,
-                bestFit: measurementEnd
-            }
-        ];
+        return squaringMeasurements.map((refPoint, index) => {
+            const measPoint = measurements[index];
+            return {
+                position: refPoint.position,
+                reference: refPoint.reading - referenceShift, // Vertical (Y-axis)
+                measurement: (measPoint?.reading || 0) - measurementShift, // Horizontal (X-axis)
+                bestFit: (measPoint?.reading || 0) - measurementShift
+            };
+        });
     };
 
     const chartData = generateChartData();
