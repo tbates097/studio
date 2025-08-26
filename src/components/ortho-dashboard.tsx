@@ -1504,9 +1504,16 @@ function ResultChart({
         return squaringMeasurements.map((refPoint, index) => {
             const measPoint = measurements[index];
             return {
+                // Coordinate System 1: measurement line (red)
+                y1: (measPoint?.reading || 0) - measurementShift, // measurement reading
+                
+                // Coordinate System 2: reference line (blue) 
+                y2: refPoint.reading - referenceShift, // reference reading
+                
+                // Keep original fields for compatibility
                 position: refPoint.position,
-                reference: refPoint.reading - referenceShift, // Vertical (Y-axis)
-                measurement: (measPoint?.reading || 0) - measurementShift, // Horizontal (X-axis)
+                reference: refPoint.reading - referenceShift,
+                measurement: (measPoint?.reading || 0) - measurementShift,
                 bestFit: (measPoint?.reading || 0) - measurementShift
             };
         });
