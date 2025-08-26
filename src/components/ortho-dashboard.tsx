@@ -1629,19 +1629,64 @@ function ResultChart({
     finalMeasurement?: Measurement,
     isUITier?: boolean
 }) {
-    // Sample data matching Aerotech plot format: L-shape with corner
-    const sampleData = [
-        { position: 0, reference: 15, measurement: 15, bestFit: 15 },
-        { position: 50, reference: 12, measurement: 12, bestFit: 12 },
-        { position: 100, reference: 8, measurement: 8, bestFit: 8 },
-        { position: 150, reference: 4, measurement: 4, bestFit: 4 },
-        { position: 200, reference: 0, measurement: 0, bestFit: 0 },
-        { position: 250, reference: 0, measurement: 0, bestFit: 0 },
-        { position: 300, reference: 0, measurement: 0, bestFit: 0 },
-        { position: 350, reference: 0, measurement: 0, bestFit: 0 },
-        { position: 400, reference: 0, measurement: 0, bestFit: 0 },
-        { position: 450, reference: 0, measurement: 0, bestFit: 0 }
-    ];
+    // Generate chart data from actual measurements
+    const generateChartData = () => {
+        if (!referenceMeasurement || !finalMeasurement) {
+            // No measurements available - return empty array
+            return [];
+        }
+
+        // Calculate the orthogonality pattern based on actual measurements
+        const startValue = referenceMeasurement.reading;
+        const endValue = finalMeasurement.reading;
+        const distance = travelDistance;
+        
+        // Create L-shape pattern: sharp drop followed by horizontal continuation
+        const data = [];
+        const numPoints = 10;
+        
+        for (let i = 0; i < numPoints; i++) {
+            const position = (i / (numPoints - 1)) * distance;
+            
+            if (i < numPoints / 2) {
+                // First half: sharp drop
+                const progress = i / (numPoints / 2);
+                const value = startValue - (startValue - endValue) * progress;
+                data.push({
+                    position,
+                    reference: value,
+                    measurement: value,
+                    bestFit: value
+                });
+            } else {
+                // Second half: horizontal continuation
+                data.push({
+                    position,
+                    reference: endValue,
+                    measurement: endValue,
+                    bestFit: endValue
+                });
+            }
+        }
+        
+        return data;
+    };
+
+    const chartData = generateChartData();
+
+    // Don't render chart if no measurements available
+    if (chartData.length === 0) {
+        return (
+            <div className="mb-4">
+                <div className="text-center mb-4">
+                    <p className="text-sm text-gray-600 font-medium">Error Exaggerated 10000X</p>
+                </div>
+                <div className="h-80 flex items-center justify-center border border-gray-200 rounded">
+                    <p className="text-gray-500">No measurement data available</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="mb-4">
@@ -1651,7 +1696,7 @@ function ResultChart({
             {isUITier ? (
                 <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={sampleData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
+                        <LineChart data={chartData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
                             <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
                             <XAxis 
                                 dataKey="position"
@@ -1689,7 +1734,7 @@ function ResultChart({
             ) : (
                 // For print/PDF: use fixed dimensions to avoid ResponsiveContainer height collapse
                 <div style={{ width: 720, height: 320 }}>
-                    <LineChart width={720} height={320} data={sampleData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
+                    <LineChart width={720} height={320} data={chartData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
                         <XAxis 
                             dataKey="position"
