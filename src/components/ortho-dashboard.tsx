@@ -1514,7 +1514,11 @@ function ResultChart({
                 position: refPoint.position,
                 reference: refPoint.reading - referenceShift,
                 measurement: (measPoint?.reading || 0) - measurementShift,
-                bestFit: (measPoint?.reading || 0) - measurementShift
+                bestFit: (measPoint?.reading || 0) - measurementShift,
+                
+                // For L-shape plotting
+                refY: refPoint.reading - referenceShift, // Y for reference line
+                measY: refPoint.position // Y for measurement line
             };
         });
     };
@@ -1542,79 +1546,258 @@ function ResultChart({
                 <p className="text-sm text-gray-600 font-medium">Error Exaggerated 10000X</p>
             </div>
             {isUITier ? (
+                // For UI: responsive square chart
                 <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
-                            <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
-                            <XAxis 
-                                dataKey="position"
-                                label={{ value: 'Direction 1', position: 'insideBottom', offset: -5 }}
-                                tick={false}
-                                type="number"
-                            />
-                            <YAxis 
-                                label={{ value: 'Direction 2', angle: -90, position: 'insideLeft' }}
-                                tick={false}
-                            />
-                            <Line 
-                                dataKey="y2"
-                                stroke="#0000ff" 
-                                strokeWidth={2} 
-                                dot={false}
-                                name="Reference"
-                            />
-                            <Line 
-                                dataKey="y1"
-                                stroke="#ff0000" 
-                                strokeWidth={2} 
-                                dot={false}
-                                name="Measurement"
-                            />
-                            <Line 
-                                dataKey="y1" 
-                                stroke="transparent"
-                                dot={{ fill: '#666', stroke: '#666', strokeWidth: 2, r: 4, symbol: 'cross' }}
-                                name="Measurements"
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
+                    <svg width="100%" height="100%" viewBox="0 0 720 720" style={{ background: 'white' }}>
+                        {/* Grid */}
+                        <defs>
+                            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#ccc" strokeWidth="1"/>
+                            </pattern>
+                        </defs>
+                        <rect width="100%" height="100%" fill="url(#grid)" />
+                        
+                        {/* Axes */}
+                        <line x1="60" y1="660" x2="660" y2="660" stroke="black" strokeWidth="2" />
+                        <line x1="60" y1="60" x2="60" y2="660" stroke="black" strokeWidth="2" />
+                        
+                        {/* Axis labels */}
+                        <text x="360" y="690" textAnchor="middle" fontSize="12">Direction 1</text>
+                        <text x="30" y="360" textAnchor="middle" fontSize="12" transform="rotate(-90, 30, 360)">Direction 2</text>
+                        
+                        {/* L-shape plotting with 4-coordinate system */}
+                        {(() => {
+                            const margin = { left: 60, right: 60, top: 60, bottom: 60 };
+                            const width = 600;
+                            const height = 600;
+                            
+                            // Calculate scales for the 4-coordinate system
+                            const maxPosition = Math.max(...squaringMeasurements.map(m => m.position));
+                            const maxRefReading = Math.max(...squaringMeasurements.map(m => m.reading));
+                            const maxMeasReading = Math.max(...measurements.map(m => m.reading));
+                            
+                            // Normalize scales so both lines have similar visual length
+                            const maxRange = Math.max(maxPosition, maxRefReading, maxMeasReading);
+                            
+                            const xScale = (x) => margin.left + (x / maxRange) * width;
+                            const yScale = (y) => margin.top + height - (y / maxRange) * height;
+                            
+                            // Calculate best fit lines
+                            const calculateBestFit = (points) => {
+                                const n = points.length;
+                                const sumX = points.reduce((sum, p) => sum + p.x, 0);
+                                const sumY = points.reduce((sum, p) => sum + p.y, 0);
+                                const sumXY = points.reduce((sum, p) => sum + p.x * p.y, 0);
+                                const sumXX = points.reduce((sum, p) => sum + p.x * p.x, 0);
+                                
+                                const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+                                const intercept = (sumY - slope * sumX) / n;
+                                
+                                return { slope, intercept };
+                            };
+                            
+                            // Reference data points for best fit
+                            const refDataPoints = squaringMeasurements.map((point, i) => ({
+                                x: point.reading - (squaringMeasurements[0]?.reading || 0), // x2: reference readings
+                                y: point.position // y1: reference position
+                            }));
+                            
+                            // Measurement data points for best fit
+                            const measDataPoints = measurements.map((point, i) => ({
+                                x: squaringMeasurements[i]?.position || 0, // x1: orthogonality position
+                                y: point.reading - (measurements[0]?.reading || 0) // y2: orthogonality readings
+                            }));
+                            
+                            // Calculate best fit lines
+                            const refBestFit = calculateBestFit(refDataPoints);
+                            const measBestFit = calculateBestFit(measDataPoints);
+                            
+                            // Generate best fit line points with separate ranges for each line
+                            const refMinX = Math.min(...refDataPoints.map(p => p.x));
+                            const refMaxX = Math.max(...refDataPoints.map(p => p.x));
+                            const refMinY = Math.min(...refDataPoints.map(p => p.y));
+                            const refMaxY = Math.max(...refDataPoints.map(p => p.y));
+                            
+                            const measMinX = Math.min(...measDataPoints.map(p => p.x));
+                            const measMaxX = Math.max(...measDataPoints.map(p => p.x));
+                            const measMinY = Math.min(...measDataPoints.map(p => p.y));
+                            const measMaxY = Math.max(...measDataPoints.map(p => p.y));
+                            
+                            // Reference best fit line (blue) - use reference data range
+                            const refLineStart = { x: refMinX, y: refBestFit.slope * refMinX + refBestFit.intercept };
+                            const refLineEnd = { x: refMaxX, y: refBestFit.slope * refMaxX + refBestFit.intercept };
+                            
+                            // Measurement best fit line (red) - use measurement data range
+                            const measLineStart = { x: measMinX, y: measBestFit.slope * measMinX + measBestFit.intercept };
+                            const measLineEnd = { x: measMaxX, y: measBestFit.slope * measMaxX + measBestFit.intercept };
+                            
+                            return (
+                                <>
+                                    {/* Reference best fit line (Blue) */}
+                                    <line 
+                                        x1={xScale(refLineStart.x)} 
+                                        y1={yScale(refLineStart.y)} 
+                                        x2={xScale(refLineEnd.x)} 
+                                        y2={yScale(refLineEnd.y)} 
+                                        stroke="blue" 
+                                        strokeWidth="2" 
+                                    />
+                                    
+                                    {/* Measurement best fit line (Red) */}
+                                    <line 
+                                        x1={xScale(measLineStart.x)} 
+                                        y1={yScale(measLineStart.y)} 
+                                        x2={xScale(measLineEnd.x)} 
+                                        y2={yScale(measLineEnd.y)} 
+                                        stroke="red" 
+                                        strokeWidth="2" 
+                                    />
+                                    
+                                    {/* X markers for actual data points */}
+                                    {refDataPoints.map((point, i) => (
+                                        <g key={`ref-${i}`}>
+                                            <line x1={xScale(point.x)-4} y1={yScale(point.y)-4} x2={xScale(point.x)+4} y2={yScale(point.y)+4} stroke="gray" strokeWidth="2" />
+                                            <line x1={xScale(point.x)-4} y1={yScale(point.y)+4} x2={xScale(point.x)+4} y2={yScale(point.y)-4} stroke="gray" strokeWidth="2" />
+                                        </g>
+                                    ))}
+                                    
+                                    {measDataPoints.map((point, i) => (
+                                        <g key={`meas-${i}`}>
+                                            <line x1={xScale(point.x)-4} y1={yScale(point.y)-4} x2={xScale(point.x)+4} y2={yScale(point.y)+4} stroke="gray" strokeWidth="2" />
+                                            <line x1={xScale(point.x)-4} y1={yScale(point.y)+4} x2={xScale(point.x)+4} y2={yScale(point.y)-4} stroke="gray" strokeWidth="2" />
+                                        </g>
+                                    ))}
+                                </>
+                            );
+                        })()}
+                    </svg>
                 </div>
             ) : (
-                // For print/PDF: use fixed dimensions to avoid ResponsiveContainer height collapse
-                <div style={{ width: 720, height: 320 }}>
-                    <LineChart width={720} height={320} data={chartData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
-                        <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
-                        <XAxis 
-                            dataKey="position"
-                            label={{ value: 'Direction 1', position: 'insideBottom', offset: -5 }}
-                            tick={false}
-                            type="number"
-                        />
-                        <YAxis 
-                            label={{ value: 'Direction 2', angle: -90, position: 'insideLeft' }}
-                            tick={false}
-                        />
-                        <Line 
-                            dataKey="y2"
-                            stroke="#0000ff" 
-                            strokeWidth={2} 
-                            dot={false}
-                            name="Reference"
-                        />
-                        <Line 
-                            dataKey="y1"
-                            stroke="#ff0000" 
-                            strokeWidth={2} 
-                            dot={false}
-                            name="Measurement"
-                        />
-                        <Line 
-                            dataKey="y1" 
-                            stroke="transparent"
-                            dot={{ fill: '#666', stroke: '#666', strokeWidth: 2, r: 4, symbol: 'cross' }}
-                            name="Measurements"
-                        />
-                    </LineChart>
+                // For print/PDF: fixed square dimensions
+                <div style={{ width: 720, height: 720, border: '1px solid #ccc' }}>
+                    <svg width="720" height="720" style={{ background: 'white' }}>
+                        {/* Grid */}
+                        <defs>
+                            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#ccc" strokeWidth="1"/>
+                            </pattern>
+                        </defs>
+                        <rect width="100%" height="100%" fill="url(#grid)" />
+                        
+                        {/* Axes */}
+                        <line x1="60" y1="660" x2="660" y2="660" stroke="black" strokeWidth="2" />
+                        <line x1="60" y1="60" x2="60" y2="660" stroke="black" strokeWidth="2" />
+                        
+                        {/* Axis labels */}
+                        <text x="360" y="690" textAnchor="middle" fontSize="12">Direction 1</text>
+                        <text x="30" y="360" textAnchor="middle" fontSize="12" transform="rotate(-90, 30, 360)">Direction 2</text>
+                        
+                        {/* L-shape plotting with 4-coordinate system */}
+                        {(() => {
+                            const margin = { left: 60, right: 60, top: 60, bottom: 60 };
+                            const width = 600;
+                            const height = 600;
+                            
+                            // Calculate scales for the 4-coordinate system
+                            const maxPosition = Math.max(...squaringMeasurements.map(m => m.position));
+                            const maxRefReading = Math.max(...squaringMeasurements.map(m => m.reading));
+                            const maxMeasReading = Math.max(...measurements.map(m => m.reading));
+                            
+                            // Normalize scales so both lines have similar visual length
+                            const maxRange = Math.max(maxPosition, maxRefReading, maxMeasReading);
+                            
+                            const xScale = (x) => margin.left + (x / maxRange) * width;
+                            const yScale = (y) => margin.top + height - (y / maxRange) * height;
+                            
+                            // Calculate best fit lines
+                            const calculateBestFit = (points) => {
+                                const n = points.length;
+                                const sumX = points.reduce((sum, p) => sum + p.x, 0);
+                                const sumY = points.reduce((sum, p) => sum + p.y, 0);
+                                const sumXY = points.reduce((sum, p) => sum + p.x * p.y, 0);
+                                const sumXX = points.reduce((sum, p) => sum + p.x * p.x, 0);
+                                
+                                const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+                                const intercept = (sumY - slope * sumX) / n;
+                                
+                                return { slope, intercept };
+                            };
+                            
+                            // Reference data points for best fit
+                            const refDataPoints = squaringMeasurements.map((point, i) => ({
+                                x: point.reading - (squaringMeasurements[0]?.reading || 0), // x2: reference readings
+                                y: point.position // y1: reference position
+                            }));
+                            
+                            // Measurement data points for best fit
+                            const measDataPoints = measurements.map((point, i) => ({
+                                x: squaringMeasurements[i]?.position || 0, // x1: orthogonality position
+                                y: point.reading - (measurements[0]?.reading || 0) // y2: orthogonality readings
+                            }));
+                            
+                            // Calculate best fit lines
+                            const refBestFit = calculateBestFit(refDataPoints);
+                            const measBestFit = calculateBestFit(measDataPoints);
+                            
+                            // Generate best fit line points with separate ranges for each line
+                            const refMinX = Math.min(...refDataPoints.map(p => p.x));
+                            const refMaxX = Math.max(...refDataPoints.map(p => p.x));
+                            const refMinY = Math.min(...refDataPoints.map(p => p.y));
+                            const refMaxY = Math.max(...refDataPoints.map(p => p.y));
+                            
+                            const measMinX = Math.min(...measDataPoints.map(p => p.x));
+                            const measMaxX = Math.max(...measDataPoints.map(p => p.x));
+                            const measMinY = Math.min(...measDataPoints.map(p => p.y));
+                            const measMaxY = Math.max(...measDataPoints.map(p => p.y));
+                            
+                            // Reference best fit line (blue) - use reference data range
+                            const refLineStart = { x: refMinX, y: refBestFit.slope * refMinX + refBestFit.intercept };
+                            const refLineEnd = { x: refMaxX, y: refBestFit.slope * refMaxX + refBestFit.intercept };
+                            
+                            // Measurement best fit line (red) - use measurement data range
+                            const measLineStart = { x: measMinX, y: measBestFit.slope * measMinX + measBestFit.intercept };
+                            const measLineEnd = { x: measMaxX, y: measBestFit.slope * measMaxX + measBestFit.intercept };
+                            
+                            return (
+                                <>
+                                    {/* Reference best fit line (Blue) */}
+                                    <line 
+                                        x1={xScale(refLineStart.x)} 
+                                        y1={yScale(refLineStart.y)} 
+                                        x2={xScale(refLineEnd.x)} 
+                                        y2={yScale(refLineEnd.y)} 
+                                        stroke="blue" 
+                                        strokeWidth="2" 
+                                    />
+                                    
+                                    {/* Measurement best fit line (Red) */}
+                                    <line 
+                                        x1={xScale(measLineStart.x)} 
+                                        y1={yScale(measLineStart.y)} 
+                                        x2={xScale(measLineEnd.x)} 
+                                        y2={yScale(measLineEnd.y)} 
+                                        stroke="red" 
+                                        strokeWidth="2" 
+                                    />
+                                    
+                                    {/* X markers for actual data points */}
+                                    {refDataPoints.map((point, i) => (
+                                        <g key={`ref-${i}`}>
+                                            <line x1={xScale(point.x)-4} y1={yScale(point.y)-4} x2={xScale(point.x)+4} y2={yScale(point.y)+4} stroke="gray" strokeWidth="2" />
+                                            <line x1={xScale(point.x)-4} y1={yScale(point.y)+4} x2={xScale(point.x)+4} y2={yScale(point.y)-4} stroke="gray" strokeWidth="2" />
+                                        </g>
+                                    ))}
+                                    
+                                    {measDataPoints.map((point, i) => (
+                                        <g key={`meas-${i}`}>
+                                            <line x1={xScale(point.x)-4} y1={yScale(point.y)-4} x2={xScale(point.x)+4} y2={yScale(point.y)+4} stroke="gray" strokeWidth="2" />
+                                            <line x1={xScale(point.x)-4} y1={yScale(point.y)+4} x2={xScale(point.x)+4} y2={yScale(point.y)-4} stroke="gray" strokeWidth="2" />
+                                        </g>
+                                    ))}
+                                </>
+                            );
+                        })()}
+                    </svg>
                 </div>
             )}
         </div>

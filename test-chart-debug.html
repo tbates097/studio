@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orthogonality Chart Test</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.js"></script>
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .input-section { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .input-group { margin-bottom: 10px; }
+        label { display: inline-block; width: 120px; font-weight: bold; }
+        input { padding: 5px; margin: 5px; width: 100px; }
+        button { padding: 8px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .chart-container { margin-top: 20px; border: 1px solid #ccc; padding: 10px; }
+        .data-display { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Orthogonality Chart Test</h1>
+    <p>This replicates the exact charting logic from the ortho-dashboard project.</p>
+    
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="env,react">
+        const { useState, useEffect } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } = Recharts;
+
+        function TestChart() {
+            const [squaringMeasurements, setSquaringMeasurements] = useState([
+                { position: 0, reading: 49.5 },
+                { position: 100, reading: 47.8 }
+            ]);
+            
+            const [measurements, setMeasurements] = useState([
+                { position: 0, reading: 10.7 },
+                { position: 100, reading: 8.9 }
+            ]);
+
+            const [newSquaringPosition, setNewSquaringPosition] = useState('');
+            const [newSquaringReading, setNewSquaringReading] = useState('');
+            const [newMeasurementPosition, setNewMeasurementPosition] = useState('');
+            const [newMeasurementReading, setNewMeasurementReading] = useState('');
+
+            // EXACT COPY OF THE CHARTING LOGIC FROM ORTHO-DASHBOARD
+            const generateChartData = () => {
+                console.log('generateChartData called');
+                console.log('squaringMeasurements:', squaringMeasurements);
+                console.log('measurements:', measurements);
+                
+                // Show data if we have either reference measurements OR orthogonality measurements
+                if ((!squaringMeasurements || squaringMeasurements.length === 0) && (!measurements || measurements.length === 0)) {
+                    console.log('No measurements available - returning empty array');
+                    return [];
+                }
+
+                // Create L-shape: reference line vertical, measurement line horizontal
+                // Shift both sets so their first point = 0, then plot reference vertically and measurement horizontally
+                
+                const referenceShift = squaringMeasurements[0]?.reading || 0;
+                const measurementShift = measurements[0]?.reading || 0;
+                
+                console.log('referenceShift:', referenceShift);
+                console.log('measurementShift:', measurementShift);
+                
+                const result = squaringMeasurements.map((refPoint, index) => {
+                    const measPoint = measurements[index];
+                    const dataPoint = {
+                        // Coordinate System 1: measurement line (red)
+                        y1: (measPoint?.reading || 0) - measurementShift, // measurement reading
+                        
+                        // Coordinate System 2: reference line (blue) 
+                        y2: refPoint.reading - referenceShift, // reference reading
+                        
+                        // Keep original fields for compatibility
+                        position: refPoint.position,
+                        reference: refPoint.reading - referenceShift,
+                        measurement: (measPoint?.reading || 0) - measurementShift,
+                        bestFit: (measPoint?.reading || 0) - measurementShift,
+                        
+                        // For L-shape plotting
+                        refY: refPoint.reading - referenceShift, // Y for reference line
+                        measY: refPoint.position, // Y for measurement line
+                        
+                        // New 4-axis coordinate system
+                        orthoPosition: refPoint.position, // x1: orthogonality position
+                        refPosition: refPoint.position,   // y1: reference position
+                        refReading: refPoint.reading - referenceShift,     // x2: reference readings
+                        orthoReading: (measPoint?.reading || 0) - measurementShift // y2: orthogonality readings
+                    };
+                    console.log(`Data point ${index}:`, dataPoint);
+                    return dataPoint;
+                });
+                
+                console.log('Final chart data:', result);
+                return result;
+            };
+
+            const chartData = generateChartData();
+            console.log('Final check - chartData.length:', chartData.length, 'chartData:', chartData);
+
+            const addSquaringMeasurement = () => {
+                if (newSquaringPosition && newSquaringReading) {
+                    setSquaringMeasurements(prev => [...prev, {
+                        position: parseFloat(newSquaringPosition),
+                        reading: parseFloat(newSquaringReading)
+                    }]);
+                    setNewSquaringPosition('');
+                    setNewSquaringReading('');
+                }
+            };
+
+            const addMeasurement = () => {
+                if (newMeasurementPosition && newMeasurementReading) {
+                    setMeasurements(prev => [...prev, {
+                        position: parseFloat(newMeasurementPosition),
+                        reading: parseFloat(newMeasurementReading)
+                    }]);
+                    setNewMeasurementPosition('');
+                    setNewMeasurementReading('');
+                }
+            };
+
+            const clearAll = () => {
+                setSquaringMeasurements([]);
+                setMeasurements([]);
+            };
+
+            const resetToDefault = () => {
+                setSquaringMeasurements([
+                    { position: 0, reading: 49.5 },
+                    { position: 100, reading: 47.8 }
+                ]);
+                setMeasurements([
+                    { position: 0, reading: 10.7 },
+                    { position: 100, reading: 8.9 }
+                ]);
+            };
+
+            // Don't render chart if no measurements available
+            if (chartData.length === 0) {
+                return (
+                    <div>
+                        <div className="input-section">
+                            <h3>Input Test Data</h3>
+                            
+                            <div className="input-group">
+                                <h4>Squaring Measurements (Reference - Blue Line)</h4>
+                                <label>Position:</label>
+                                <input 
+                                    type="number" 
+                                    value={newSquaringPosition} 
+                                    onChange={(e) => setNewSquaringPosition(e.target.value)}
+                                    placeholder="0"
+                                />
+                                <label>Reading (μm):</label>
+                                <input 
+                                    type="number" 
+                                    value={newSquaringReading} 
+                                    onChange={(e) => setNewSquaringReading(e.target.value)}
+                                    placeholder="49.5"
+                                />
+                                <button onClick={addSquaringMeasurement}>Add Squaring</button>
+                            </div>
+
+                            <div className="input-group">
+                                <h4>Orthogonality Measurements (Red Line)</h4>
+                                <label>Position:</label>
+                                <input 
+                                    type="number" 
+                                    value={newMeasurementPosition} 
+                                    onChange={(e) => setNewMeasurementPosition(e.target.value)}
+                                    placeholder="0"
+                                />
+                                <label>Reading (μm):</label>
+                                <input 
+                                    type="number" 
+                                    value={newMeasurementReading} 
+                                    onChange={(e) => setNewMeasurementReading(e.target.value)}
+                                    placeholder="10.7"
+                                />
+                                <button onClick={addMeasurement}>Add Measurement</button>
+                            </div>
+
+                            <div className="input-group">
+                                <button onClick={resetToDefault}>Reset to Default</button>
+                                <button onClick={clearAll}>Clear All</button>
+                            </div>
+                        </div>
+
+                        <div className="chart-container">
+                            <div className="text-center mb-4">
+                                <p className="text-sm text-gray-600 font-medium">Error Exaggerated 10000X</p>
+                            </div>
+                            <div className="h-80 flex items-center justify-center border border-gray-200 rounded">
+                                <p className="text-gray-500">No measurement data available</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div>
+                    <div className="input-section">
+                        <h3>Input Test Data</h3>
+                        
+                        <div className="input-group">
+                            <h4>Squaring Measurements (Reference - Blue Line)</h4>
+                            <label>Position:</label>
+                            <input 
+                                type="number" 
+                                value={newSquaringPosition} 
+                                onChange={(e) => setNewSquaringPosition(e.target.value)}
+                                placeholder="0"
+                            />
+                            <label>Reading (μm):</label>
+                            <input 
+                                type="number" 
+                                value={newSquaringReading} 
+                                onChange={(e) => setNewSquaringReading(e.target.value)}
+                                placeholder="49.5"
+                            />
+                            <button onClick={addSquaringMeasurement}>Add Squaring</button>
+                        </div>
+
+                        <div className="input-group">
+                            <h4>Orthogonality Measurements (Red Line)</h4>
+                            <label>Position:</label>
+                            <input 
+                                type="number" 
+                                value={newMeasurementPosition} 
+                                onChange={(e) => setNewMeasurementPosition(e.target.value)}
+                                placeholder="0"
+                            />
+                            <label>Reading (μm):</label>
+                            <input 
+                                type="number" 
+                                value={newMeasurementReading} 
+                                onChange={(e) => setNewMeasurementReading(e.target.value)}
+                                placeholder="10.7"
+                            />
+                            <button onClick={addMeasurement}>Add Measurement</button>
+                        </div>
+
+                        <div className="input-group">
+                            <button onClick={resetToDefault}>Reset to Default</button>
+                            <button onClick={clearAll}>Clear All</button>
+                        </div>
+
+                        <div className="data-display">
+                            <h4>Current Data:</h4>
+                            <p><strong>Squaring Measurements:</strong> {JSON.stringify(squaringMeasurements)}</p>
+                            <p><strong>Orthogonality Measurements:</strong> {JSON.stringify(measurements)}</p>
+                            <p><strong>Chart Data:</strong> {JSON.stringify(chartData)}</p>
+                        </div>
+                    </div>
+
+                    <div className="chart-container">
+                        <div className="text-center mb-4">
+                            <p className="text-sm text-gray-600 font-medium">Error Exaggerated 10000X</p>
+                        </div>
+                        <div style={{ width: 720, height: 720, border: '1px solid #ccc' }}>
+                            <svg width="720" height="720" style={{ background: 'white' }}>
+                                {/* Grid */}
+                                <defs>
+                                    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#ccc" strokeWidth="1"/>
+                                    </pattern>
+                                </defs>
+                                <rect width="100%" height="100%" fill="url(#grid)" />
+                                
+                                {/* Axes */}
+                                <line x1="60" y1="660" x2="660" y2="660" stroke="black" strokeWidth="2" />
+                                <line x1="60" y1="60" x2="60" y2="660" stroke="black" strokeWidth="2" />
+                                
+                                {/* Axis labels */}
+                                <text x="360" y="690" textAnchor="middle" fontSize="12">Direction 1</text>
+                                <text x="30" y="360" textAnchor="middle" fontSize="12" transform="rotate(-90, 30, 360)">Direction 2</text>
+                                
+                                {/* L-shape plotting with 4-coordinate system */}
+                                {(() => {
+                                    const margin = { left: 60, right: 60, top: 60, bottom: 60 };
+                                    const width = 600;
+                                    const height = 600;
+                                    
+                                    // Calculate scales for the 4-coordinate system
+                                    const maxPosition = Math.max(...squaringMeasurements.map(m => m.position));
+                                    const maxRefReading = Math.max(...squaringMeasurements.map(m => m.reading));
+                                    const maxMeasReading = Math.max(...measurements.map(m => m.reading));
+                                    
+                                    // Normalize scales so both lines have similar visual length
+                                    const maxRange = Math.max(maxPosition, maxRefReading, maxMeasReading);
+                                    
+                                    const xScale = (x) => margin.left + (x / maxRange) * width;
+                                    const yScale = (y) => margin.top + height - (y / maxRange) * height;
+                                    
+                                                                                                              // Calculate best fit lines
+                                     const calculateBestFit = (points) => {
+                                         const n = points.length;
+                                         const sumX = points.reduce((sum, p) => sum + p.x, 0);
+                                         const sumY = points.reduce((sum, p) => sum + p.y, 0);
+                                         const sumXY = points.reduce((sum, p) => sum + p.x * p.y, 0);
+                                         const sumXX = points.reduce((sum, p) => sum + p.x * p.x, 0);
+                                         
+                                         const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+                                         const intercept = (sumY - slope * sumX) / n;
+                                         
+                                         return { slope, intercept };
+                                     };
+                                     
+                                     // Reference data points for best fit
+                                     const refDataPoints = squaringMeasurements.map((point, i) => ({
+                                         x: point.reading - (squaringMeasurements[0]?.reading || 0), // x2: reference readings
+                                         y: point.position // y1: reference position
+                                     }));
+                                     
+                                     // Measurement data points for best fit
+                                     const measDataPoints = measurements.map((point, i) => ({
+                                         x: squaringMeasurements[i]?.position || 0, // x1: orthogonality position
+                                         y: point.reading - (measurements[0]?.reading || 0) // y2: orthogonality readings
+                                     }));
+                                     
+                                     // Calculate best fit lines
+                                     const refBestFit = calculateBestFit(refDataPoints);
+                                     const measBestFit = calculateBestFit(measDataPoints);
+                                     
+                                     // Generate best fit line points with separate ranges for each line
+                                     const refMinX = Math.min(...refDataPoints.map(p => p.x));
+                                     const refMaxX = Math.max(...refDataPoints.map(p => p.x));
+                                     const refMinY = Math.min(...refDataPoints.map(p => p.y));
+                                     const refMaxY = Math.max(...refDataPoints.map(p => p.y));
+                                     
+                                     const measMinX = Math.min(...measDataPoints.map(p => p.x));
+                                     const measMaxX = Math.max(...measDataPoints.map(p => p.x));
+                                     const measMinY = Math.min(...measDataPoints.map(p => p.y));
+                                     const measMaxY = Math.max(...measDataPoints.map(p => p.y));
+                                     
+                                     // Reference best fit line (blue) - use reference data range
+                                     const refLineStart = { x: refMinX, y: refBestFit.slope * refMinX + refBestFit.intercept };
+                                     const refLineEnd = { x: refMaxX, y: refBestFit.slope * refMaxX + refBestFit.intercept };
+                                     
+                                     // Measurement best fit line (red) - use measurement data range
+                                     const measLineStart = { x: measMinX, y: measBestFit.slope * measMinX + measBestFit.intercept };
+                                     const measLineEnd = { x: measMaxX, y: measBestFit.slope * measMaxX + measBestFit.intercept };
+                                     
+                                     return (
+                                         <>
+                                             {/* Reference best fit line (Blue) */}
+                                             <line 
+                                                 x1={xScale(refLineStart.x)} 
+                                                 y1={yScale(refLineStart.y)} 
+                                                 x2={xScale(refLineEnd.x)} 
+                                                 y2={yScale(refLineEnd.y)} 
+                                                 stroke="blue" 
+                                                 strokeWidth="2" 
+                                             />
+                                             
+                                             {/* Measurement best fit line (Red) */}
+                                             <line 
+                                                 x1={xScale(measLineStart.x)} 
+                                                 y1={yScale(measLineStart.y)} 
+                                                 x2={xScale(measLineEnd.x)} 
+                                                 y2={yScale(measLineEnd.y)} 
+                                                 stroke="red" 
+                                                 strokeWidth="2" 
+                                             />
+                                             
+                                             {/* X markers for actual data points */}
+                                             {refDataPoints.map((point, i) => (
+                                                 <g key={`ref-${i}`}>
+                                                     <line x1={xScale(point.x)-4} y1={yScale(point.y)-4} x2={xScale(point.x)+4} y2={yScale(point.y)+4} stroke="gray" strokeWidth="2" />
+                                                     <line x1={xScale(point.x)-4} y1={yScale(point.y)+4} x2={xScale(point.x)+4} y2={yScale(point.y)-4} stroke="gray" strokeWidth="2" />
+                                                 </g>
+                                             ))}
+                                             
+                                             {measDataPoints.map((point, i) => (
+                                                 <g key={`meas-${i}`}>
+                                                     <line x1={xScale(point.x)-4} y1={yScale(point.y)-4} x2={xScale(point.x)+4} y2={yScale(point.y)+4} stroke="gray" strokeWidth="2" />
+                                                     <line x1={xScale(point.x)-4} y1={yScale(point.y)+4} x2={xScale(point.x)+4} y2={yScale(point.y)-4} stroke="gray" strokeWidth="2" />
+                                                 </g>
+                                             ))}
+                                         </>
+                                     );
+                                })()}
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<TestChart />, document.getElementById('root'));
+    </script>
+</body>
+</html>
