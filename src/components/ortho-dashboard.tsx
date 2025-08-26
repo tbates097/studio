@@ -1660,20 +1660,19 @@ function ResultChart({
             )}
             {!isUITier && (
                 <div className="text-center mb-4">
-                    <h1 className="text-xl font-bold mb-1">Axis Alignment</h1>
-                    <p className="text-sm text-gray-600">Error Exaggerated 10000X</p>
+                    <p className="text-sm text-gray-600 font-medium">Error Exaggerated 10000X</p>
                 </div>
             )}
             <div className={isUITier ? "h-64 p-4" : "h-80 mb-4"}>
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={plotData} margin={{ top: 20, right: 30, left: 40, bottom: 40 }}>
+                    <LineChart data={plotData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
                         <XAxis 
                             dataKey="direction1" 
-                            domain={[0, 450]}
-                            label={{ value: 'Direction 1', position: 'insideBottom', offset: -10 }}
-                            tick={{ fontSize: 12 }}
                             type="number"
+                            domain={[0, 450]}
+                            label={{ value: 'Direction 1', position: 'insideBottom', offset: -5 }}
+                            tick={{ fontSize: 12 }}
                         />
                         <YAxis 
                             domain={[-40, 10]}
@@ -1688,7 +1687,7 @@ function ResultChart({
                             stroke="#ff0000" 
                             strokeWidth={2} 
                             dot={false}
-                            name="Reference"
+                            connectNulls
                         />
                         
                         {/* Best fit line (blue diagonal) */}
@@ -1698,25 +1697,23 @@ function ResultChart({
                             stroke="#0000ff" 
                             strokeWidth={2} 
                             dot={false}
-                            name="Best Fit"
+                            connectNulls
                         />
                         
                         {/* Measurement points with X markers */}
                         <Line 
                             dataKey="direction2" 
-                            stroke="transparent" 
-                            strokeWidth={0}
+                            stroke="none"
                             dot={(props: any) => {
                                 const { cx, cy } = props;
                                 return (
                                     <g>
-                                        <line x1={cx-3} y1={cy-3} x2={cx+3} y2={cy+3} stroke="#000" strokeWidth="2" />
-                                        <line x1={cx-3} y1={cy+3} x2={cx+3} y2={cy-3} stroke="#000" strokeWidth="2" />
+                                        <line x1={cx-4} y1={cy-4} x2={cx+4} y2={cy+4} stroke="#000" strokeWidth="2" />
+                                        <line x1={cx-4} y1={cy+4} x2={cx+4} y2={cy-4} stroke="#000" strokeWidth="2" />
                                     </g>
                                 );
                             }}
                             activeDot={false}
-                            name="Measurements"
                         />
                     </LineChart>
                 </ResponsiveContainer>
@@ -1747,7 +1744,7 @@ function PrintableReport({
   return (
     <div className="p-8 font-sans bg-white text-black printable-area flex flex-col min-h-[95vh]">
       <header className="flex items-center justify-center pb-4 mb-4 border-b border-gray-300 relative">
-        <Logo className="absolute left-0 w-auto h-12" width={200} height={48} />
+        <img src="/AerotechLogo.svg" alt="Aerotech Logo" className="absolute left-0 h-12 w-auto" />
         <h1 className="text-2xl font-bold text-gray-700 text-center">Axis Alignment</h1>
       </header>
       
