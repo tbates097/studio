@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Ruler,
   Link,
   Unlink,
   Calculator,
@@ -29,7 +28,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Settings,
 } from "lucide-react";
 import {
   LineChart,
@@ -37,20 +35,13 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import { 
-  calculateOrthogonality, 
-  calculateSlopeFromDifferential, 
-  calculateTwoPhaseOrthogonality, 
-  calculateSlopeFromTwoProbes,
   calculateInitialAngle,
   calculateLeverArm,
   calculateTargetReading,
   checkTargetProgress,
-  calculateBestFitLine,
   calculateCompensatedOrthogonality,
   calculateAdjustmentTolerance,
   type MeasurementPoint
@@ -60,9 +51,7 @@ import { Logo } from "./icons/logo";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useIndicator } from "@/hooks/use-indicator";
-import { Slider } from "@/components/ui/slider";
 import { Badge } from "./ui/badge";
-import { Separator } from "./ui/separator";
 
 
 type Step = "setup" | "squaring" | "referenceMeasurement" | "adjustment" | "finalMeasurement" | "results";
@@ -94,8 +83,6 @@ const SPEC_ARCSECONDS = 5;
 export function OrthoDashboard() {
   const [step, setStep] = useState<Step>("setup");
   const [measurementDistance, setMeasurementDistance] = useState("100");
-  const [currentPosition, setCurrentPosition] = useState("0");
-  const [probeSpacing, setProbeSpacing] = useState("30");
   const { 
     reading: currentReading, 
     currentReadingRef,
@@ -120,14 +107,6 @@ export function OrthoDashboard() {
   const [squaringZero, setSquaringZero] = useState<number | null>(null);
   const [squaringResult, setSquaringResult] = useState<OrthogonalityResult>(null);
   const [adjustmentZero, setAdjustmentZero] = useState<number | null>(null);
-  const [phase1ProbeAReading, setPhase1ProbeAReading] = useState<number | null>(null);
-  const [phase1ZeroReading, setPhase1ZeroReading] = useState<number | null>(null);
-  const [currentProbeAReading, setCurrentProbeAReading] = useState<number | null>(null);
-  const [currentProbeBReading, setCurrentProbeBReading] = useState<number | null>(null);
-  const [liveProbeAReading, setLiveProbeAReading] = useState<number | null>(null);
-  const [liveProbeBReading, setLiveProbeBReading] = useState<number | null>(null);
-  const [isLiveReadingActive, setIsLiveReadingActive] = useState(false);
-  const [lastReadingPairTimestamp, setLastReadingPairTimestamp] = useState<number>(0);
   
   // Three-Phase Workflow State
   const [currentPhase, setCurrentPhase] = useState<1 | 2 | 3>(1);
@@ -207,78 +186,6 @@ export function OrthoDashboard() {
 
   const isConnected = connectionStatus === 'connected';
 
-  // Rapid switching for live readings
-  const [currentProbeMode, setCurrentProbeMode] = useState<'A' | 'B'>('A');
-  const switchingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  const startRapidSwitching = useCallback(() => {
-    if (!isConnected || isLiveReadingActive) return;
-    
-    setIsLiveReadingActive(true);
-    let mode: 'A' | 'B' = 'A';
-    let tempProbeAReading: number | null = null;
-    
-    switchingIntervalRef.current = setInterval(() => {
-      if (mode === 'A') {
-        sendCommand("FNC 1\r"); // Switch to Probe A
-        setCurrentProbeMode('A');
-        // Capture reading after small delay
-        setTimeout(() => {
-          tempProbeAReading = currentReadingRef.current;
-          setLiveProbeAReading(tempProbeAReading);
-        }, 50);
-        mode = 'B';
-      } else {
-        sendCommand("FNC 3\r"); // Switch to Probe B  
-        setCurrentProbeMode('B');
-        // Capture reading after small delay
-        setTimeout(() => {
-          const tempProbeBReading = currentReadingRef.current;
-          setLiveProbeBReading(tempProbeBReading);
-          
-          // Only update the pair when we have both fresh readings
-          if (tempProbeAReading !== null) {
-            const timestamp = Date.now();
-            setLastReadingPairTimestamp(timestamp);
-            console.log('🔄 Fresh reading pair captured:', {
-              probeA: tempProbeAReading,
-              probeB: tempProbeBReading,
-              timestamp: timestamp
-            });
-          }
-        }, 50);
-        mode = 'A';
-      }
-    }, 200); // Switch every 200ms
-  }, [isConnected, isLiveReadingActive, sendCommand, currentReadingRef]);
-
-  const stopRapidSwitching = useCallback(() => {
-    if (switchingIntervalRef.current) {
-      clearInterval(switchingIntervalRef.current);
-      switchingIntervalRef.current = null;
-    }
-    setIsLiveReadingActive(false);
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => stopRapidSwitching();
-  }, [stopRapidSwitching]);
-
-  // Helper function to capture reading after switching probe mode
-  const captureReadingAfterSwitch = useCallback((command: string, callback: (reading: number | null) => void) => {
-    if (!isConnected) return;
-    
-    // Send command to switch probe mode
-    sendCommand(command);
-    
-    // Wait for indicator to switch and capture the reading that's current at that time
-    setTimeout(() => {
-      // Use ref to get the most current reading value
-      callback(currentReadingRef.current);
-    }, 300);
-  }, [isConnected, sendCommand, currentReadingRef]);
-
   const resetProcess = () => {
     setStep("setup");
     setSquaringMeasurements([]);
@@ -288,16 +195,6 @@ export function OrthoDashboard() {
     setAdjustmentZero(null);
     setSquaringZero(null);
     setSquaringResult(null);
-    setPhase1ProbeAReading(null);
-    setPhase1ZeroReading(null);
-    setCurrentProbeAReading(null);
-    setCurrentProbeBReading(null);
-    setLiveProbeAReading(null);
-    setLiveProbeBReading(null);
-    setStableLiveOrthogonality(null);
-    stopRapidSwitching();
-    setCurrentPosition("0");
-    setProbeSpacing("30");
     
     // Reset three-phase workflow state
     setCurrentPhase(1);
@@ -332,7 +229,7 @@ export function OrthoDashboard() {
 
   const handleReportDataChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
-    setReportData(prev => ({ ...prev, [id]: value }));
+    setReportData((prev: ReportData) => ({ ...prev, [id]: value }));
   };
 
   const handleNextStep = () => {
@@ -403,7 +300,7 @@ export function OrthoDashboard() {
         if (squaringMeasurements.length > 0) {
             position = distance > 200 ? squaringMeasurements.length * 100 : distance;
         }
-        setSquaringMeasurements(prev => [...prev, { position, reading: currentReading }]);
+        setSquaringMeasurements((prev: Measurement[]) => [...prev, { position, reading: currentReading }]);
     }
   };
 
@@ -416,47 +313,11 @@ export function OrthoDashboard() {
         if (measurements.length > 0) {
             position = distance > 200 ? measurements.length * 100 : distance;
         }
-        setMeasurements(prev => [...prev, { position, reading: currentReading }]);
+        setMeasurements((prev: Measurement[]) => [...prev, { position, reading: currentReading }]);
     }
   };
 
   const handlePrint = () => window.print();
-  
-
-  
-  // Two-phase approach calculations
-  const twoPhaseResults = (phase1ZeroReading !== null && phase1ProbeAReading !== null && parseFloat(currentPosition) > 0)
-    ? calculateTwoPhaseOrthogonality(
-        phase1ZeroReading,
-        phase1ProbeAReading, 
-        parseFloat(currentPosition),
-        currentReading, // A-B differential
-        parseFloat(probeSpacing) // Use user-specified probe spacing
-      )
-    : null;
-  
-  // Stable live readings (updated less frequently to avoid rapid cycling)
-  const [stableLiveOrthogonality, setStableLiveOrthogonality] = useState<{ value: number; unit: "arcsec" } | null>(null);
-  
-  // Update calculation every 500ms instead of every render
-  useEffect(() => {
-    if (!isLiveReadingActive) return;
-    
-    const interval = setInterval(() => {
-      if (liveProbeAReading !== null && liveProbeBReading !== null && parseFloat(currentPosition) > 0) {
-        const result = calculateSlopeFromTwoProbes(
-          liveProbeAReading, 
-          parseFloat(currentPosition), 
-          liveProbeBReading, 
-          parseFloat(currentPosition) + parseFloat(probeSpacing)
-        );
-        setStableLiveOrthogonality(result);
-        console.log('🔄 Updated stable calculation:', result, 'from A:', liveProbeAReading, 'B:', liveProbeBReading);
-      }
-    }, 500); // Update every 500ms
-    
-    return () => clearInterval(interval);
-    }, [isLiveReadingActive, liveProbeAReading, liveProbeBReading, currentPosition, probeSpacing]);
 
   // Update target progress in Phase 3
   useEffect(() => {
@@ -511,18 +372,7 @@ export function OrthoDashboard() {
     }
   }, [upperCurrentPhase, upperTargetResult, currentReading, reportData.alignmentPartNumber, measurementDistance]);
 
-  // Use stable calculation for display
-  const liveSquaringOrthogonality = stableLiveOrthogonality;
-  const liveOrthogonality = stableLiveOrthogonality;
-  
-  // Debug logging
-  console.log('🔍 === LIVE ADJUSTMENT DEBUG ===');
-  console.log('🔍 currentReading (A-B differential):', currentReading);
-  console.log('🔍 probeSpacing:', probeSpacing, 'parsed:', parseFloat(probeSpacing));
-  console.log('🔍 Raw calculation: slope =', currentReading, '/', parseFloat(probeSpacing), '=', currentReading / parseFloat(probeSpacing), 'μm/mm');
-  console.log('🔍 liveOrthogonality result:', liveOrthogonality);
-  console.log('🔍 liveOrthogonality?.value:', liveOrthogonality?.value);
-  console.log('🔍 === END DEBUG ===');
+
 
   const renderStepContent = () => {
     const distance = parseFloat(measurementDistance) || 0;
@@ -1667,6 +1517,8 @@ function ResultChart({
     };
 
     const chartData = generateChartData();
+    console.log('Chart Debug - chartData:', chartData);
+    console.log('Chart Debug - chartData.length:', chartData.length);
 
     // Don't render chart if no measurements available
     if (chartData.length === 0) {
