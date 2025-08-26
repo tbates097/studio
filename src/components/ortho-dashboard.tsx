@@ -1674,8 +1674,8 @@ function ResultChart({
                 </div>
             ) : (
                 // For print/PDF: fixed square dimensions
-                <div style={{ width: 720, height: 720, border: '1px solid #ccc' }}>
-                    <svg width="720" height="720" style={{ background: 'white' }}>
+                <div style={{ width: 400, height: 400, border: '1px solid #ccc' }}>
+                    <svg width="400" height="400" style={{ background: 'white' }}>
                         {/* Grid */}
                         <defs>
                             <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -1685,18 +1685,18 @@ function ResultChart({
                         <rect width="100%" height="100%" fill="url(#grid)" />
                         
                         {/* Axes */}
-                        <line x1="60" y1="660" x2="660" y2="660" stroke="black" strokeWidth="2" />
-                        <line x1="60" y1="60" x2="60" y2="660" stroke="black" strokeWidth="2" />
+                        <line x1="40" y1="360" x2="360" y2="360" stroke="black" strokeWidth="2" />
+                        <line x1="40" y1="40" x2="40" y2="360" stroke="black" strokeWidth="2" />
                         
                         {/* Axis labels */}
-                        <text x="360" y="690" textAnchor="middle" fontSize="12">Direction 1</text>
-                        <text x="30" y="360" textAnchor="middle" fontSize="12" transform="rotate(-90, 30, 360)">Direction 2</text>
+                        <text x="200" y="380" textAnchor="middle" fontSize="10">Direction 1</text>
+                        <text x="20" y="200" textAnchor="middle" fontSize="10" transform="rotate(-90, 20, 200)">Direction 2</text>
                         
                         {/* L-shape plotting with 4-coordinate system */}
                         {(() => {
-                            const margin = { left: 60, right: 60, top: 60, bottom: 60 };
-                            const width = 600;
-                            const height = 600;
+                            const margin = { left: 40, right: 40, top: 40, bottom: 40 };
+                            const width = 320;
+                            const height = 320;
                             
                             // Calculate scales for the 4-coordinate system
                             const maxPosition = Math.max(...squaringMeasurements.map(m => m.position));
