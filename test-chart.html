@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orthogonality Chart Test</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .chart-title {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+        .chart-container {
+            height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .legend {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .legend h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            margin-right: 10px;
+        }
+        .legend-text {
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Orthogonality Chart Test</h1>
+        <p>This test shows the correct format for orthogonality measurement display:</p>
+        <ul>
+            <li><strong>X-axis (Direction 1):</strong> Measurement distance/travel</li>
+            <li><strong>Y-axis (Direction 2):</strong> Perpendicularity error (deviation from perfect perpendicularity)</li>
+            <li><strong>Red line:</strong> Reference measurement (shows artifact's own error/slope)</li>
+            <li><strong>Blue line:</strong> Best-fit line through actual measurements (orthogonality error)</li>
+            <li><strong>X markers:</strong> Individual measurement points</li>
+        </ul>
+        
+        <div class="chart-title">Error Exaggerated 10000X</div>
+        <div class="chart-container" id="chart-root"></div>
+        
+        <div class="legend">
+            <h3>Chart Interpretation:</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #0000ff;"></div>
+                <div class="legend-text"><strong>Blue Line:</strong> Reference measurement slope (artifact error) - shows the reference face is not perfectly flat</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff0000;"></div>
+                <div class="legend-text"><strong>Red Line:</strong> Best-fit through actual measurements (orthogonality error) - shows the perpendicularity deviation</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #666; width: 8px; height: 8px; border-radius: 50%;"></div>
+                <div class="legend-text"><strong>X Markers:</strong> Individual measurement points taken during the test</div>
+            </div>
+            <p><strong>True Orthogonality Error:</strong> The angle between the red and blue lines shows deviation from perfect 90° orthogonality. Perfect orthogonality would show these lines at exactly 90° to each other.</p>
+        </div>
+    </div>
+
+    <script type="text/babel" data-presets="env,react">
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } = Recharts;
+
+        function OrthogonalityTestChart() {
+            // CORRECT DATA PATTERN: Sharp drop followed by horizontal continuation
+            // Blue line: starts high, drops sharply (like a cliff)
+            // Red line: continues horizontally from where blue line ends
+            const sampleData = [
+                { position: 0, reference: 15, measurement: 15, bestFit: 15 },
+                { position: 50, reference: 12, measurement: 12, bestFit: 12 },
+                { position: 100, reference: 8, measurement: 8, bestFit: 8 },
+                { position: 150, reference: 4, measurement: 4, bestFit: 4 },
+                { position: 200, reference: 0, measurement: 0, bestFit: 0 },
+                { position: 250, reference: 0, measurement: 0, bestFit: 0 },
+                { position: 300, reference: 0, measurement: 0, bestFit: 0 },
+                { position: 350, reference: 0, measurement: 0, bestFit: 0 },
+                { position: 400, reference: 0, measurement: 0, bestFit: 0 },
+                { position: 450, reference: 0, measurement: 0, bestFit: 0 }
+            ];
+
+            return (
+                <LineChart width={760} height={360} data={sampleData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
+                    <XAxis 
+                        dataKey="position"
+                        label={{ value: 'Direction 1', position: 'insideBottom', offset: -5 }}
+                        tick={false}
+                        type="number"
+                    />
+                    <YAxis 
+                        label={{ value: 'Direction 2', angle: -90, position: 'insideLeft' }}
+                        tick={false}
+                    />
+                    <Tooltip />
+                    
+                    {/* Reference line (blue) - shows artifact's own error/slope */}
+                    <Line 
+                        dataKey="reference"
+                        stroke="#0000ff" 
+                        strokeWidth={2} 
+                        dot={false}
+                        name="Reference"
+                    />
+                    
+                    {/* Best fit line (red) - shows actual orthogonality measurements */}
+                    <Line 
+                        dataKey="bestFit"
+                        stroke="#ff0000" 
+                        strokeWidth={2} 
+                        dot={false}
+                        name="Best Fit"
+                    />
+                    
+                    {/* Measurement points (X markers) */}
+                    <Line 
+                        dataKey="measurement" 
+                        stroke="transparent"
+                        dot={{ fill: '#666', stroke: '#666', strokeWidth: 2, r: 4, symbol: 'cross' }}
+                        name="Measurements"
+                    />
+                    
+
+                </LineChart>
+            );
+        }
+
+        ReactDOM.render(<OrthogonalityTestChart />, document.getElementById('chart-root'));
+    </script>
+</body>
+</html>

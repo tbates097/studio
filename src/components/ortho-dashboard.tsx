@@ -1629,18 +1629,18 @@ function ResultChart({
     finalMeasurement?: Measurement,
     isUITier?: boolean
 }) {
-    // Always use sample data for now to ensure the chart displays
+    // Sample data matching Aerotech plot format: L-shape with corner
     const sampleData = [
-        { x: 0, y: 0, reference: 0, bestFit: 5 },
-        { x: 50, y: -15, reference: 0, bestFit: 4 },
-        { x: 100, y: -25, reference: 0, bestFit: 3 },
-        { x: 150, y: -30, reference: 0, bestFit: 2 },
-        { x: 200, y: -25, reference: 0, bestFit: 1 },
-        { x: 250, y: -20, reference: 0, bestFit: 0 },
-        { x: 300, y: -15, reference: 0, bestFit: -1 },
-        { x: 350, y: -10, reference: 0, bestFit: -2 },
-        { x: 400, y: -5, reference: 0, bestFit: -3 },
-        { x: 450, y: 0, reference: 0, bestFit: -5 }
+        { position: 0, reference: 15, measurement: 15, bestFit: 15 },
+        { position: 50, reference: 12, measurement: 12, bestFit: 12 },
+        { position: 100, reference: 8, measurement: 8, bestFit: 8 },
+        { position: 150, reference: 4, measurement: 4, bestFit: 4 },
+        { position: 200, reference: 0, measurement: 0, bestFit: 0 },
+        { position: 250, reference: 0, measurement: 0, bestFit: 0 },
+        { position: 300, reference: 0, measurement: 0, bestFit: 0 },
+        { position: 350, reference: 0, measurement: 0, bestFit: 0 },
+        { position: 400, reference: 0, measurement: 0, bestFit: 0 },
+        { position: 450, reference: 0, measurement: 0, bestFit: 0 }
     ];
 
     return (
@@ -1654,35 +1654,33 @@ function ResultChart({
                         <LineChart data={sampleData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
                             <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
                             <XAxis 
-                                dataKey="x"
-                                domain={[0, 450]}
+                                dataKey="position"
                                 label={{ value: 'Direction 1', position: 'insideBottom', offset: -5 }}
-                                tick={{ fontSize: 12 }}
+                                tick={false}
                                 type="number"
                             />
                             <YAxis 
-                                domain={[-40, 10]}
                                 label={{ value: 'Direction 2', angle: -90, position: 'insideLeft' }}
-                                tick={{ fontSize: 12 }}
+                                tick={false}
                             />
                             <Line 
                                 dataKey="reference"
-                                stroke="#ff0000" 
+                                stroke="#0000ff" 
                                 strokeWidth={2} 
                                 dot={false}
                                 name="Reference"
                             />
                             <Line 
                                 dataKey="bestFit"
-                                stroke="#0000ff" 
+                                stroke="#ff0000" 
                                 strokeWidth={2} 
                                 dot={false}
                                 name="Best Fit"
                             />
                             <Line 
-                                dataKey="y" 
+                                dataKey="measurement" 
                                 stroke="transparent"
-                                dot={{ fill: '#000', stroke: '#000', strokeWidth: 2, r: 4 }}
+                                dot={{ fill: '#666', stroke: '#666', strokeWidth: 2, r: 4, symbol: 'cross' }}
                                 name="Measurements"
                             />
                         </LineChart>
@@ -1694,35 +1692,33 @@ function ResultChart({
                     <LineChart width={720} height={320} data={sampleData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
                         <XAxis 
-                            dataKey="x"
-                            domain={[0, 450]}
+                            dataKey="position"
                             label={{ value: 'Direction 1', position: 'insideBottom', offset: -5 }}
-                            tick={{ fontSize: 12 }}
+                            tick={false}
                             type="number"
                         />
                         <YAxis 
-                            domain={[-40, 10]}
                             label={{ value: 'Direction 2', angle: -90, position: 'insideLeft' }}
-                            tick={{ fontSize: 12 }}
+                            tick={false}
                         />
                         <Line 
                             dataKey="reference"
-                            stroke="#ff0000" 
+                            stroke="#0000ff" 
                             strokeWidth={2} 
                             dot={false}
                             name="Reference"
                         />
                         <Line 
                             dataKey="bestFit"
-                            stroke="#0000ff" 
+                            stroke="#ff0000" 
                             strokeWidth={2} 
                             dot={false}
                             name="Best Fit"
                         />
                         <Line 
-                            dataKey="y" 
+                            dataKey="measurement" 
                             stroke="transparent"
-                            dot={{ fill: '#000', stroke: '#000', strokeWidth: 2, r: 4 }}
+                            dot={{ fill: '#666', stroke: '#666', strokeWidth: 2, r: 4, symbol: 'cross' }}
                             name="Measurements"
                         />
                     </LineChart>
