@@ -192,10 +192,10 @@ export function OrthoDashboard() {
   const [upperTargetProgress, setUpperTargetProgress] = useState<{ isWithinTolerance: boolean; error: number; progress: number; unit: "μm" } | null>(null);
 
   const [reportData, setReportData] = useState<ReportData>({
-    technician: "Andrew T. Jung",
-    axis1Serial: "643237-1-1-X",
-    axis2Serial: "643237-1-1-Y",
-    orderNumber: "643237",
+    technician: "Enter Name",
+    axis1Serial: "100000-1-1-X",
+    axis2Serial: "100000-1-1-Y",
+    orderNumber: "100000",
     customerName: "Plant & Mill - Singapore",
     alignmentPartNumber: "PA5",
     artifactAssetNumber: "0346",
@@ -1637,20 +1637,25 @@ function ResultChart({
 }) {
     // Generate chart data from actual measurements
     const generateChartData = () => {
-        if (!squaringMeasurements || squaringMeasurements.length === 0 || !measurements || measurements.length === 0) {
+        console.log('Chart Debug - squaringMeasurements:', squaringMeasurements);
+        console.log('Chart Debug - measurements:', measurements);
+        
+        // Show data if we have either reference measurements OR orthogonality measurements
+        if ((!squaringMeasurements || squaringMeasurements.length === 0) && (!measurements || measurements.length === 0)) {
+            console.log('Chart Debug - No data available');
             // No measurements available - return empty array
             return [];
         }
 
         // Combine reference measurements (blue line) and orthogonality measurements (red line)
         const allPositions = new Set([
-            ...squaringMeasurements.map(m => m.position),
-            ...measurements.map(m => m.position)
+            ...(squaringMeasurements || []).map(m => m.position),
+            ...(measurements || []).map(m => m.position)
         ]);
         
         return Array.from(allPositions).sort((a, b) => a - b).map(position => {
-            const referencePoint = squaringMeasurements.find(m => m.position === position);
-            const measurementPoint = measurements.find(m => m.position === position);
+            const referencePoint = (squaringMeasurements || []).find(m => m.position === position);
+            const measurementPoint = (measurements || []).find(m => m.position === position);
             
             return {
                 position,
