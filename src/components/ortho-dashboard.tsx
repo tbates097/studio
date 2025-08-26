@@ -1487,12 +1487,8 @@ function ResultChart({
 }) {
     // Generate chart data from actual measurements
     const generateChartData = () => {
-        console.log('Chart Debug - squaringMeasurements:', squaringMeasurements);
-        console.log('Chart Debug - measurements:', measurements);
-        
         // Show data if we have either reference measurements OR orthogonality measurements
         if ((!squaringMeasurements || squaringMeasurements.length === 0) && (!measurements || measurements.length === 0)) {
-            console.log('Chart Debug - No data available');
             // No measurements available - return empty array
             return [];
         }
@@ -1517,8 +1513,6 @@ function ResultChart({
     };
 
     const chartData = generateChartData();
-    console.log('Chart Debug - chartData:', chartData);
-    console.log('Chart Debug - chartData.length:', chartData.length);
 
     // Don't render chart if no measurements available
     if (chartData.length === 0) {
