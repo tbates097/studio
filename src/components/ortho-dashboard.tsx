@@ -1347,6 +1347,8 @@ export function OrthoDashboard() {
             measurementDistance={measurementDistance}
             finalMeasurement={measurements[measurements.length - 1]}
             referenceMeasurement={measurements[0]}
+            measurements={measurements}
+            squaringMeasurements={squaringMeasurements}
           />
       </div>
 
@@ -1493,26 +1495,39 @@ function ResultChart({
             return [];
         }
 
-        // Combine reference measurements (blue line) and orthogonality measurements (red line)
-        const allPositions = new Set([
-            ...(squaringMeasurements || []).map(m => m.position),
-            ...(measurements || []).map(m => m.position)
-        ]);
+        // Create the L-shape pattern like test-chart.html
+        // Blue line (reference): shows the reference measurement slope - drops from high to low
+        // Red line (measurement): shows orthogonality measurement - continues horizontally from corner
         
-        return Array.from(allPositions).sort((a, b) => a - b).map(position => {
-            const referencePoint = (squaringMeasurements || []).find(m => m.position === position);
-            const measurementPoint = (measurements || []).find(m => m.position === position);
-            
-            return {
-                position,
-                reference: referencePoint?.reading || 0,
-                measurement: measurementPoint?.reading || 0,
-                bestFit: measurementPoint?.reading || 0
-            };
-        });
+        const referenceStart = squaringMeasurements[0]?.reading || 0;
+        const referenceEnd = squaringMeasurements[squaringMeasurements.length - 1]?.reading || 0;
+        const measurementStart = measurements[0]?.reading || 0;
+        const measurementEnd = measurements[measurements.length - 1]?.reading || 0;
+        
+        return [
+            {
+                position: 0,
+                reference: referenceStart,
+                measurement: measurementStart,
+                bestFit: measurementStart
+            },
+            {
+                position: travelDistance / 2,
+                reference: referenceEnd,
+                measurement: measurementStart,
+                bestFit: measurementStart
+            },
+            {
+                position: travelDistance,
+                reference: referenceEnd,
+                measurement: measurementEnd,
+                bestFit: measurementEnd
+            }
+        ];
     };
 
     const chartData = generateChartData();
+    console.log('Final check - chartData.length:', chartData.length, 'chartData:', chartData);
 
     // Don't render chart if no measurements available
     if (chartData.length === 0) {
@@ -1620,6 +1635,8 @@ function PrintableReport({
   measurementDistance,
   referenceMeasurement,
   finalMeasurement,
+  measurements = [],
+  squaringMeasurements = [],
 }: {
   reportData: ReportData;
   finalResult: OrthogonalityResult;
@@ -1627,6 +1644,8 @@ function PrintableReport({
   measurementDistance: string;
   referenceMeasurement?: Measurement;
   finalMeasurement?: Measurement;
+  measurements?: Measurement[];
+  squaringMeasurements?: Measurement[];
 }) {
 
   const resultValue = finalResult?.value ?? 0;
@@ -1644,7 +1663,8 @@ function PrintableReport({
             travelDistance={parseFloat(measurementDistance)}
             finalMeasurement={finalMeasurement}
             referenceMeasurement={referenceMeasurement}
-            measurements={[]} // TODO: Pass actual measurements array
+            measurements={measurements}
+            squaringMeasurements={squaringMeasurements}
         />
       </main>
       
