@@ -1648,9 +1648,50 @@ function ResultChart({
             <div className="text-center mb-4">
                 <p className="text-sm text-gray-600 font-medium">Error Exaggerated 10000X</p>
             </div>
-            <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={sampleData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
+            {isUITier ? (
+                <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={sampleData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
+                            <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
+                            <XAxis 
+                                dataKey="x"
+                                domain={[0, 450]}
+                                label={{ value: 'Direction 1', position: 'insideBottom', offset: -5 }}
+                                tick={{ fontSize: 12 }}
+                                type="number"
+                            />
+                            <YAxis 
+                                domain={[-40, 10]}
+                                label={{ value: 'Direction 2', angle: -90, position: 'insideLeft' }}
+                                tick={{ fontSize: 12 }}
+                            />
+                            <Line 
+                                dataKey="reference"
+                                stroke="#ff0000" 
+                                strokeWidth={2} 
+                                dot={false}
+                                name="Reference"
+                            />
+                            <Line 
+                                dataKey="bestFit"
+                                stroke="#0000ff" 
+                                strokeWidth={2} 
+                                dot={false}
+                                name="Best Fit"
+                            />
+                            <Line 
+                                dataKey="y" 
+                                stroke="transparent"
+                                dot={{ fill: '#000', stroke: '#000', strokeWidth: 2, r: 4 }}
+                                name="Measurements"
+                            />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            ) : (
+                // For print/PDF: use fixed dimensions to avoid ResponsiveContainer height collapse
+                <div style={{ width: 720, height: 320 }}>
+                    <LineChart width={720} height={320} data={sampleData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
                         <XAxis 
                             dataKey="x"
@@ -1664,8 +1705,6 @@ function ResultChart({
                             label={{ value: 'Direction 2', angle: -90, position: 'insideLeft' }}
                             tick={{ fontSize: 12 }}
                         />
-                        
-                        {/* Reference line (red horizontal at y=0) */}
                         <Line 
                             dataKey="reference"
                             stroke="#ff0000" 
@@ -1673,8 +1712,6 @@ function ResultChart({
                             dot={false}
                             name="Reference"
                         />
-                        
-                        {/* Best fit line (blue diagonal) */}
                         <Line 
                             dataKey="bestFit"
                             stroke="#0000ff" 
@@ -1682,8 +1719,6 @@ function ResultChart({
                             dot={false}
                             name="Best Fit"
                         />
-                        
-                        {/* Measurement points with X markers */}
                         <Line 
                             dataKey="y" 
                             stroke="transparent"
@@ -1691,8 +1726,8 @@ function ResultChart({
                             name="Measurements"
                         />
                     </LineChart>
-                </ResponsiveContainer>
-            </div>
+                </div>
+            )}
         </div>
     );
 }
