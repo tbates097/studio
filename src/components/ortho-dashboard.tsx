@@ -1674,8 +1674,8 @@ function ResultChart({
                 </div>
             ) : (
                 // For print/PDF: fixed square dimensions
-                <div style={{ width: 400, height: 400, border: '1px solid #ccc' }}>
-                    <svg width="400" height="400" style={{ background: 'white' }}>
+                <div style={{ width: 600, height: 600, border: '1px solid #ccc' }}>
+                    <svg width="600" height="600" style={{ background: 'white' }}>
                         {/* Grid */}
                         <defs>
                             <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -1685,18 +1685,18 @@ function ResultChart({
                         <rect width="100%" height="100%" fill="url(#grid)" />
                         
                         {/* Axes */}
-                        <line x1="40" y1="360" x2="360" y2="360" stroke="black" strokeWidth="2" />
-                        <line x1="40" y1="40" x2="40" y2="360" stroke="black" strokeWidth="2" />
+                        <line x1="60" y1="540" x2="540" y2="540" stroke="black" strokeWidth="2" />
+                        <line x1="60" y1="60" x2="60" y2="540" stroke="black" strokeWidth="2" />
                         
                         {/* Axis labels */}
-                        <text x="200" y="380" textAnchor="middle" fontSize="10">Direction 1</text>
-                        <text x="20" y="200" textAnchor="middle" fontSize="10" transform="rotate(-90, 20, 200)">Direction 2</text>
+                        <text x="300" y="560" textAnchor="middle" fontSize="12">Direction 1</text>
+                        <text x="30" y="300" textAnchor="middle" fontSize="12" transform="rotate(-90, 30, 300)">Direction 2</text>
                         
                         {/* L-shape plotting with 4-coordinate system */}
                         {(() => {
-                            const margin = { left: 40, right: 40, top: 40, bottom: 40 };
-                            const width = 320;
-                            const height = 320;
+                            const margin = { left: 60, right: 60, top: 60, bottom: 60 };
+                            const width = 480;
+                            const height = 480;
                             
                             // Calculate scales for the 4-coordinate system
                             const maxPosition = Math.max(...squaringMeasurements.map(m => m.position));
@@ -1829,12 +1829,12 @@ function PrintableReport({
 
   return (
     <div className="p-8 font-sans bg-white text-black printable-area flex flex-col min-h-[95vh]">
-      <header className="flex items-center justify-center pb-4 mb-4 border-b border-gray-300 relative">
-        <img src="/AerotechLogo.svg" alt="Aerotech Logo" className="absolute left-0 h-12 w-auto" />
-        <h1 className="text-2xl font-bold text-gray-700 text-center">Axis Alignment</h1>
+      <header className="flex items-center justify-center pb-4 mb-4 border-b border-gray-300">
+        <img src="/AerotechLogo.svg" alt="Aerotech Logo" className="h-12 w-auto" />
+        <h1 className="text-2xl font-bold text-gray-700 text-center ml-4">Axis Alignment</h1>
       </header>
       
-      <main className="flex-1">
+      <main className="flex-1 flex justify-center">
         <ResultChart
             travelDistance={parseFloat(measurementDistance)}
             finalMeasurement={finalMeasurement}
