@@ -1629,50 +1629,35 @@ function ResultChart({
     finalMeasurement?: Measurement,
     isUITier?: boolean
 }) {
-    if (!referenceMeasurement || !finalMeasurement) return null;
-    
-    const errorExaggeration = 10000;
-
-    // Generate sample measurement points based on the screenshot pattern
-    const plotData = [
-        { direction1: 0, direction2: 0, reference: 0, bestFit: 5 },
-        { direction1: 50, direction2: -15, reference: 0, bestFit: 4 },
-        { direction1: 100, direction2: -25, reference: 0, bestFit: 3 },
-        { direction1: 150, direction2: -30, reference: 0, bestFit: 2 },
-        { direction1: 200, direction2: -25, reference: 0, bestFit: 1 },
-        { direction1: 250, direction2: -20, reference: 0, bestFit: 0 },
-        { direction1: 300, direction2: -15, reference: 0, bestFit: -1 },
-        { direction1: 350, direction2: -10, reference: 0, bestFit: -2 },
-        { direction1: 400, direction2: -5, reference: 0, bestFit: -3 },
-        { direction1: 450, direction2: 0, reference: 0, bestFit: -5 },
+    // Always use sample data for now to ensure the chart displays
+    const sampleData = [
+        { x: 0, y: 0, reference: 0, bestFit: 5 },
+        { x: 50, y: -15, reference: 0, bestFit: 4 },
+        { x: 100, y: -25, reference: 0, bestFit: 3 },
+        { x: 150, y: -30, reference: 0, bestFit: 2 },
+        { x: 200, y: -25, reference: 0, bestFit: 1 },
+        { x: 250, y: -20, reference: 0, bestFit: 0 },
+        { x: 300, y: -15, reference: 0, bestFit: -1 },
+        { x: 350, y: -10, reference: 0, bestFit: -2 },
+        { x: 400, y: -5, reference: 0, bestFit: -3 },
+        { x: 450, y: 0, reference: 0, bestFit: -5 }
     ];
 
-    const cardTitle = isUITier ? "Result Visualization" : "Axis Alignment";
-    const cardDescription = isUITier ? "Visual representation of the orthogonality error." : "Error Exaggerated 10000X";
-
     return (
-        <div className={isUITier ? "border rounded-lg" : ""}>
-            {isUITier && (
-                <div className="p-4 border-b">
-                    <h3 className="text-lg font-medium">{cardTitle}</h3>
-                    <p className="text-sm text-gray-600">{cardDescription}</p>
-                </div>
-            )}
-            {!isUITier && (
-                <div className="text-center mb-4">
-                    <p className="text-sm text-gray-600 font-medium">Error Exaggerated 10000X</p>
-                </div>
-            )}
-            <div className={isUITier ? "h-64 p-4" : "h-80 mb-4"}>
+        <div className="mb-4">
+            <div className="text-center mb-4">
+                <p className="text-sm text-gray-600 font-medium">Error Exaggerated 10000X</p>
+            </div>
+            <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={plotData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
+                    <LineChart data={sampleData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="1 1" stroke="#ccc" />
                         <XAxis 
-                            dataKey="direction1" 
-                            type="number"
+                            dataKey="x"
                             domain={[0, 450]}
                             label={{ value: 'Direction 1', position: 'insideBottom', offset: -5 }}
                             tick={{ fontSize: 12 }}
+                            type="number"
                         />
                         <YAxis 
                             domain={[-40, 10]}
@@ -1680,40 +1665,30 @@ function ResultChart({
                             tick={{ fontSize: 12 }}
                         />
                         
-                        {/* Reference line (red horizontal) */}
+                        {/* Reference line (red horizontal at y=0) */}
                         <Line 
-                            type="linear" 
-                            dataKey="reference" 
+                            dataKey="reference"
                             stroke="#ff0000" 
                             strokeWidth={2} 
                             dot={false}
-                            connectNulls
+                            name="Reference"
                         />
                         
                         {/* Best fit line (blue diagonal) */}
                         <Line 
-                            type="linear" 
-                            dataKey="bestFit" 
+                            dataKey="bestFit"
                             stroke="#0000ff" 
                             strokeWidth={2} 
                             dot={false}
-                            connectNulls
+                            name="Best Fit"
                         />
                         
                         {/* Measurement points with X markers */}
                         <Line 
-                            dataKey="direction2" 
-                            stroke="none"
-                            dot={(props: any) => {
-                                const { cx, cy } = props;
-                                return (
-                                    <g>
-                                        <line x1={cx-4} y1={cy-4} x2={cx+4} y2={cy+4} stroke="#000" strokeWidth="2" />
-                                        <line x1={cx-4} y1={cy+4} x2={cx+4} y2={cy-4} stroke="#000" strokeWidth="2" />
-                                    </g>
-                                );
-                            }}
-                            activeDot={false}
+                            dataKey="y" 
+                            stroke="transparent"
+                            dot={{ fill: '#000', stroke: '#000', strokeWidth: 2, r: 4 }}
+                            name="Measurements"
                         />
                     </LineChart>
                 </ResponsiveContainer>
