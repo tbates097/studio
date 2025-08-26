@@ -1550,21 +1550,21 @@ function ResultChart({
                                 tick={false}
                             />
                             <Line 
-                                dataKey="reference"
+                                dataKey="y2"
                                 stroke="#0000ff" 
                                 strokeWidth={2} 
                                 dot={false}
                                 name="Reference"
                             />
                             <Line 
-                                dataKey="bestFit"
+                                dataKey="y1"
                                 stroke="#ff0000" 
                                 strokeWidth={2} 
                                 dot={false}
-                                name="Best Fit"
+                                name="Measurement"
                             />
                             <Line 
-                                dataKey="measurement" 
+                                dataKey="y1" 
                                 stroke="transparent"
                                 dot={{ fill: '#666', stroke: '#666', strokeWidth: 2, r: 4, symbol: 'cross' }}
                                 name="Measurements"
@@ -1588,21 +1588,21 @@ function ResultChart({
                             tick={false}
                         />
                         <Line 
-                            dataKey="reference"
+                            dataKey="y2"
                             stroke="#0000ff" 
                             strokeWidth={2} 
                             dot={false}
                             name="Reference"
                         />
                         <Line 
-                            dataKey="bestFit"
+                            dataKey="y1"
                             stroke="#ff0000" 
                             strokeWidth={2} 
                             dot={false}
-                            name="Best Fit"
+                            name="Measurement"
                         />
                         <Line 
-                            dataKey="measurement" 
+                            dataKey="y1" 
                             stroke="transparent"
                             dot={{ fill: '#666', stroke: '#666', strokeWidth: 2, r: 4, symbol: 'cross' }}
                             name="Measurements"
