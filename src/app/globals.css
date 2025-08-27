@@ -94,9 +94,11 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 2rem;
+    width: 8.5in !important;
+    height: 11in !important;
+    margin: 0 auto !important;
+    padding: 0.3in !important;
+    box-sizing: border-box !important;
   }
   .no-print {
     display: none !important;
