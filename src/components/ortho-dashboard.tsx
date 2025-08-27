@@ -281,6 +281,22 @@ export function OrthoDashboard() {
       setStep("finalMeasurement");
     }
   };
+
+  const clearSquaringMeasurements = () => {
+    setSquaringMeasurements([]);
+    toast({
+      title: "Measurements Cleared",
+      description: "Reference measurements have been cleared. You can start recording again.",
+    });
+  };
+
+  const clearFinalMeasurements = () => {
+    setMeasurements([]);
+    toast({
+      title: "Measurements Cleared", 
+      description: "Final measurements have been cleared. You can start recording again.",
+    });
+  };
   
   const handlePrevStep = () => {
     if (step === "squaring") {
@@ -1031,15 +1047,22 @@ export function OrthoDashboard() {
             </CardContent>
             <CardFooter className="justify-between">
               <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-              {squaringMeasurements.length < numMeasurements ? (
-                <Button onClick={recordSquaringMeasurement} disabled={!isConnected}>
-                   Record Reading ({squaringMeasurements.length === 0 ? '0' : (distance > 200 ? (squaringMeasurements.length) * 100 : distance)}mm) <Check/>
-                </Button>
-              ) : (
-                <Button onClick={handleNextStep} className="bg-primary hover:bg-primary/90">
-                  Reference Complete <ChevronRight />
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {squaringMeasurements.length > 0 && (
+                  <Button variant="outline" onClick={clearSquaringMeasurements}>
+                    Clear Measurements
+                  </Button>
+                )}
+                {squaringMeasurements.length < numMeasurements ? (
+                  <Button onClick={recordSquaringMeasurement} disabled={!isConnected}>
+                     Record Reading ({squaringMeasurements.length === 0 ? '0' : (distance > 200 ? (squaringMeasurements.length) * 100 : distance)}mm) <Check/>
+                  </Button>
+                ) : (
+                  <Button onClick={handleNextStep} className="bg-primary hover:bg-primary/90">
+                    Reference Complete <ChevronRight />
+                  </Button>
+                )}
+              </div>
             </CardFooter>
           </Card>
         );
@@ -1441,15 +1464,22 @@ export function OrthoDashboard() {
                 </CardContent>
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-                    {measurements.length < numMeasurements ? (
-                        <Button onClick={recordMeasurement} disabled={!isConnected}>
-                            Record Reading ({measurements.length === 0 ? '0' : (distance > 200 ? (measurements.length) * 100 : distance)}mm) <Check/>
-                        </Button>
-                    ) : (
-                        <Button onClick={handleNextStep} className="bg-accent hover:bg-accent/90">
-                            Calculate Results <ChevronRight />
-                        </Button>
-                    )}
+                    <div className="flex gap-2">
+                        {measurements.length > 0 && (
+                            <Button variant="outline" onClick={clearFinalMeasurements}>
+                                Clear Measurements
+                            </Button>
+                        )}
+                        {measurements.length < numMeasurements ? (
+                            <Button onClick={recordMeasurement} disabled={!isConnected}>
+                                Record Reading ({measurements.length === 0 ? '0' : (distance > 200 ? (measurements.length) * 100 : distance)}mm) <Check/>
+                            </Button>
+                        ) : (
+                            <Button onClick={handleNextStep} className="bg-accent hover:bg-accent/90">
+                                Calculate Results <ChevronRight />
+                            </Button>
+                        )}
+                    </div>
                 </CardFooter>
             </Card>
         );
