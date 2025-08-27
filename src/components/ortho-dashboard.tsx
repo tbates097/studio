@@ -351,6 +351,7 @@ export function OrthoDashboard() {
   const handlePrint = useCallback(async () => {
     // Check if PDF libraries are available for enhanced PDF generation
     if (typeof window !== 'undefined' && (window as any).html2canvas && (window as any).jsPDF) {
+      let wasHidden = false; // Declare outside try block for error handling
       try {
         // Enhanced PDF generation
         const target = document.querySelector('#print-report .printable-area') as HTMLElement;
@@ -371,9 +372,11 @@ export function OrthoDashboard() {
           return;
         }
 
-        const originalDisplay = printReport.style.display;
-        printReport.style.display = 'block';
-        printReport.style.visibility = 'visible';
+        // Remove the 'hidden' class temporarily (Tailwind's hidden uses !important)
+        wasHidden = printReport.classList.contains('hidden');
+        if (wasHidden) {
+          printReport.classList.remove('hidden');
+        }
 
         console.log('Generating PDF for print report element:', target);
         const canvas = await (window as any).html2canvas(target, { 
@@ -386,8 +389,9 @@ export function OrthoDashboard() {
         });
         
         // Hide the print report again
-        printReport.style.display = originalDisplay;
-        printReport.style.visibility = '';
+        if (wasHidden) {
+          printReport.classList.add('hidden');
+        }
         
         const imgData = canvas.toDataURL('image/png');
         const pdf = new (window as any).jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
@@ -408,6 +412,11 @@ export function OrthoDashboard() {
         console.log('PDF report saved successfully');
       } catch (error) {
         console.error('Error generating PDF:', error);
+        // Restore hidden class if error occurred
+        const printReport = document.getElementById('print-report');
+        if (printReport && wasHidden) {
+          printReport.classList.add('hidden');
+        }
         // Fallback to regular print
         window.print();
       }
