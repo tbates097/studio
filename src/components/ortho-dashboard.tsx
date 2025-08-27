@@ -1935,7 +1935,9 @@ function PrintableReport({
         width: '8.5in',
         height: '11in',
         margin: '0 auto',
-        padding: '0.25in', // Slightly reduce padding to shift content left
+        padding: '0.3in',
+        paddingLeft: '0.5in', // Extra left padding to center content better
+        paddingRight: '0.1in', // Reduce right padding to shift left
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
@@ -1982,7 +1984,7 @@ function PrintableReport({
         width: '100%',
       }}>
         <div style={{
-          width: '750px', // Slightly wider to better center on page
+          width: '720px', // Adjusted for the new padding layout
           display: 'flex',
           justifyContent: 'center',
         }}>
@@ -1998,7 +2000,7 @@ function PrintableReport({
       
       {/* Three-column footer aligned with chart width */}
       <section style={{
-        width: '750px', // Match chart container width
+        width: '720px', // Match chart container width
         margin: '0 auto',
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
