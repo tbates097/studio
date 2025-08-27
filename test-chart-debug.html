@@ -8,6 +8,9 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/prop-types@15.8.1/prop-types.js"></script>
     <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <!-- PDF generation libs -->
+    <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
@@ -25,6 +28,10 @@
 <body>
     <h1>Orthogonality Chart Test</h1>
     <p>This replicates the exact charting logic from the ortho-dashboard project.</p>
+    <div style="margin: 10px 0;">
+        <button id="btn-pdf">Save PDF</button>
+        <button id="btn-print">Print</button>
+    </div>
     
     <div id="root"></div>
 
@@ -207,7 +214,7 @@
             }
 
             return (
-                <div>
+                <div id="pdf-root">
                     <div className="input-section">
                         <h3>Input Test Data</h3>
                         
@@ -266,8 +273,8 @@
                         <div className="text-center mb-4">
                             <p className="text-sm text-gray-600 font-medium">Error Exaggerated 10000X</p>
                         </div>
-                        <div style={{ width: 720, height: 720, border: '1px solid #ccc' }}>
-                            <svg width="720" height="720" style={{ background: 'white' }}>
+                        <div style={{ width: 600, height: 600, border: '1px solid #ccc' }}>
+                            <svg width="600" height="600" style={{ background: 'white' }}>
                                 {/* Grid */}
                                 <defs>
                                     <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -277,18 +284,18 @@
                                 <rect width="100%" height="100%" fill="url(#grid)" />
                                 
                                 {/* Axes */}
-                                <line x1="60" y1="660" x2="660" y2="660" stroke="black" strokeWidth="2" />
-                                <line x1="60" y1="60" x2="60" y2="660" stroke="black" strokeWidth="2" />
+                                <line x1="60" y1="540" x2="540" y2="540" stroke="black" strokeWidth="2" />
+                                <line x1="60" y1="60" x2="60" y2="540" stroke="black" strokeWidth="2" />
                                 
                                 {/* Axis labels */}
-                                <text x="360" y="690" textAnchor="middle" fontSize="12">Direction 1</text>
-                                <text x="30" y="360" textAnchor="middle" fontSize="12" transform="rotate(-90, 30, 360)">Direction 2</text>
+                                <text x="300" y="560" textAnchor="middle" fontSize="12">Direction 1</text>
+                                <text x="30" y="300" textAnchor="middle" fontSize="12" transform="rotate(-90, 30, 300)">Direction 2</text>
                                 
                                 {/* L-shape plotting with 4-coordinate system */}
                                 {(() => {
                                     const margin = { left: 60, right: 60, top: 60, bottom: 60 };
-                                    const width = 600;
-                                    const height = 600;
+                                    const width = 480;  // plotting area inside 600x600 with 60px margins
+                                    const height = 480;
                                     
                                     // Calculate scales for the 4-coordinate system
                                     const maxPosition = Math.max(...squaringMeasurements.map(m => m.position));
@@ -397,6 +404,33 @@
         }
 
         ReactDOM.render(<TestChart />, document.getElementById('root'));
+
+        // PDF/Print handlers
+        window.addEventListener('DOMContentLoaded', () => {
+            const { jsPDF } = window.jspdf;
+            const pdfBtn = document.getElementById('btn-pdf');
+            const printBtn = document.getElementById('btn-print');
+            const target = document.getElementById('pdf-root');
+
+            if (pdfBtn && target) {
+                pdfBtn.addEventListener('click', async () => {
+                    const canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: 2 });
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+                    const pageWidth = pdf.internal.pageSize.getWidth();
+                    const margin = 36; // 0.5in
+                    const drawWidth = pageWidth - margin * 2;
+                    const aspect = canvas.height / canvas.width;
+                    const drawHeight = drawWidth * aspect;
+                    pdf.addImage(imgData, 'PNG', margin, margin, drawWidth, drawHeight);
+                    pdf.save('orthogonality-chart.pdf');
+                });
+            }
+
+            if (printBtn) {
+                printBtn.addEventListener('click', () => window.print());
+            }
+        });
     </script>
 </body>
 </html>
