@@ -1674,7 +1674,7 @@ function ResultChart({
                 </div>
             ) : (
                 // For print/PDF: fixed square dimensions
-                <div style={{ width: 600, height: 600, border: '1px solid #ccc' }}>
+                <div style={{ width: 550, height: 550, border: '1px solid #ccc' }}>
                     <svg width="600" height="600" style={{ background: 'white' }}>
                         {/* Grid */}
                         <defs>
@@ -1829,9 +1829,9 @@ function PrintableReport({
 
   return (
     <div className="p-8 font-sans bg-white text-black printable-area flex flex-col min-h-[95vh]">
-      <header className="flex items-center justify-center pb-4 mb-4 border-b border-gray-300">
-        <img src="/AerotechLogo.svg" alt="Aerotech Logo" className="h-12 w-auto" />
-        <h1 className="text-2xl font-bold text-gray-700 text-center ml-4">Axis Alignment</h1>
+      <header className="flex flex-col items-center justify-center pb-4 mb-4 border-b border-gray-300">
+        <img src="/AerotechLogo.svg" alt="Aerotech Logo" className="h-12 w-auto mb-2" />
+        <h1 className="text-2xl font-bold text-gray-700 text-center">Axis Alignment</h1>
       </header>
       
       <main className="flex-1 flex justify-center">
