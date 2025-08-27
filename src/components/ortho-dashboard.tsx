@@ -361,14 +361,8 @@ export function OrthoDashboard() {
           return;
         }
 
-        // Convert logo image to base64 first to avoid tainted canvas
-        const logoImg = document.querySelector('#print-report img[src="/AERO_RGB.jpg"]') as HTMLImageElement;
-        if (logoImg) {
-          console.log('Converting logo to base64...');
-          const base64Logo = await convertImageToBase64(logoImg);
-          logoImg.src = base64Logo;
-          console.log('Logo converted to base64 successfully');
-        }
+        // Note: Skipping logo conversion for Vercel compatibility
+        console.log('PDF generation starting without logo conversion');
 
         // Temporarily show the print report for PDF generation
         const printReport = document.getElementById('print-report');
@@ -1976,15 +1970,23 @@ function PrintableReport({
         <hr style={{ width: '100%', border: '1px solid #ccc', margin: '0.05in 0' }} />
       </header>
       
-      {/* Chart container - centered with fixed dimensions */}
+      {/* Chart container - centered between title and text boxes */}
       <main style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        flex: '1',
-        marginBottom: '0.3in',
+        flexGrow: 1,
+        marginTop: '0.1in',
+        marginBottom: '0.2in',
+        minHeight: '5.5in', // Ensures chart gets proper space
       }}>
-        <div style={{ width: '550px', height: '550px' }}>
+        <div style={{ 
+          width: '550px', 
+          height: '550px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
           <ResultChart
             travelDistance={parseFloat(measurementDistance)}
             finalMeasurement={finalMeasurement}
