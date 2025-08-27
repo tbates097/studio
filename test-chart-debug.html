@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Orthogonality Chart Test</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.js"></script>
-    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <!-- React and related libraries from CDNjs (more reliable) -->
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.min.js"></script>
     <!-- PDF generation libs -->
-    <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.5/babel.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .input-section { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
@@ -23,6 +24,51 @@
         .chart-container { margin-top: 20px; border: 1px solid #ccc; padding: 10px; }
         .data-display { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; }
         .error { color: red; }
+        
+        /* Print styles - replicating ortho-dashboard.tsx */
+        @media print {
+            @page {
+                margin: 0.25in;
+                size: letter;
+            }
+            
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            
+            body * {
+                visibility: hidden;
+            }
+            
+            .print-show, .print-show * {
+                visibility: visible;
+            }
+            
+            .printable-area {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                padding: 0.2in !important;
+                box-sizing: border-box !important;
+            }
+            
+            .no-print {
+                display: none !important;
+            }
+            
+            .print-show {
+                display: block !important;
+            }
+        }
+        
+        /* Hide print report by default, show only when printing */
+        .hidden.print-show {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -33,10 +79,153 @@
         <button id="btn-print">Print</button>
     </div>
     
-    <div id="root"></div>
+    <!-- Hidden print report - replicating ortho-dashboard structure -->
+    <div id="print-report" class="hidden print-show">
+        <div class="printable-area" style="
+            font-family: Arial, sans-serif; 
+            background: white; 
+            color: black; 
+            width: 8.5in; 
+            height: 11in; 
+            margin: 0 auto; 
+            padding: 0.3in; 
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        ">
+            <!-- Header with logo and title -->
+            <header style="
+                display: flex; 
+                flex-direction: column; 
+                align-items: center; 
+                margin-bottom: 0.2in;
+            ">
+                <img src="./AERO_RGB.jpg" alt="Aerotech Logo" style="
+                    height: 80px; 
+                    width: auto; 
+                    margin-bottom: 0.05in; 
+                    max-width: 300px;
+                    object-fit: contain;
+                " />
+                <h1 style="
+                    font-size: 1.2rem; 
+                    font-weight: bold; 
+                    color: #555; 
+                    margin: 0;
+                    text-align: center;
+                ">Axis Alignment</h1>
+                <hr style="width: 100%; border: 1px solid #ccc; margin: 0.05in 0;" />
+            </header>
+            
+            <!-- Chart container - centered with fixed dimensions -->
+            <main style="
+                display: flex; 
+                justify-content: center; 
+                align-items: center;
+                flex: 1;
+                margin-bottom: 0.3in;
+            ">
+                <div id="print-chart-container" style="
+                    width: 550px; 
+                    height: 550px; 
+                    border: 1px solid #ccc;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <!-- Chart will be inserted here dynamically -->
+                    <p style="color: #666;">Chart will appear here</p>
+                </div>
+            </main>
+            
+            <!-- Three-column footer aligned with chart width -->
+            <section style="
+                width: 700px;
+                margin: 0 auto;
+                display: grid; 
+                grid-template-columns: repeat(3, 1fr); 
+                gap: 0.4rem; 
+                font-size: 0.7rem;
+                margin-bottom: 0.3in;
+            ">
+                <div style="padding: 0.5rem; border: 1px solid #ccc;">
+                    <h3 style="
+                        font-weight: bold; 
+                        border-bottom: 1px solid #ccc; 
+                        padding-bottom: 0.25rem; 
+                        margin: 0 0 0.25rem 0;
+                        font-size: 0.8rem;
+                    ">Results</h3>
+                    <div style="line-height: 1.3;">
+                        <div id="print-result">Orthogonality = 1.800 μm</div>
+                    </div>
+                </div>
+                
+                <div style="padding: 0.5rem; border: 1px solid #ccc;">
+                    <h3 style="
+                        font-weight: bold; 
+                        border-bottom: 1px solid #ccc; 
+                        padding-bottom: 0.25rem; 
+                        margin: 0 0 0.25rem 0;
+                        font-size: 0.8rem;
+                    ">Comments</h3>
+                    <div style="line-height: 1.2; font-size: 0.65rem;">
+                        <div>Axis 1 Serial: 100000-1-1-X</div>
+                        <div>Axis 2 Serial: 100000-1-1-Y</div>
+                        <div>Order Number: 100000</div>
+                        <div>Customer: Plant & Mill - Singapore</div>
+                        <div>Alignment Part: PA5</div>
+                    </div>
+                </div>
+                
+                <div style="padding: 0.5rem; border: 1px solid #ccc;">
+                    <h3 style="
+                        font-weight: bold; 
+                        border-bottom: 1px solid #ccc; 
+                        padding-bottom: 0.25rem; 
+                        margin: 0 0 0.25rem 0;
+                        font-size: 0.8rem;
+                    ">Test Conditions</h3>
+                    <div style="line-height: 1.2; font-size: 0.65rem;">
+                        <div>Technician: Enter Name</div>
+                        <div id="print-date">Date: 27 Aug 2024</div>
+                        <div>Order Number: 100000</div>
+                        <div>Indicator Asset: 05614</div>
+                        <div id="print-distance">Measurement Dist: 100 mm</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Footer -->
+            <footer style="
+                text-align: center; 
+                font-size: 0.75rem;
+                margin-top: auto;
+            ">
+                <p style="
+                    font-weight: bold; 
+                    color: #dc2626; 
+                    margin: 0;
+                ">Aerotech Inc., Proprietary and Confidential</p>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Main interactive content -->
+    <div id="root" class="no-print"></div>
 
     <script type="text/babel" data-presets="env,react">
+        // Ensure React and ReactDOM are available
+        if (typeof React === 'undefined') {
+            console.error('React is not loaded');
+        }
+        if (typeof ReactDOM === 'undefined') {
+            console.error('ReactDOM is not loaded');
+        }
+        
         const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
         const { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } = Recharts;
 
         function TestChart() {
@@ -111,6 +300,15 @@
 
             const chartData = generateChartData();
             console.log('Final check - chartData.length:', chartData.length, 'chartData:', chartData);
+            
+            // Update print report with current data (moved outside component)
+            
+            // Update print report whenever data changes
+            React.useEffect(() => {
+                if (window.updatePrintReport) {
+                    window.updatePrintReport(measurements, squaringMeasurements);
+                }
+            }, [measurements, squaringMeasurements]);
 
             const addSquaringMeasurement = () => {
                 if (newSquaringPosition && newSquaringReading) {
@@ -149,11 +347,13 @@
                     { position: 100, reading: 8.9 }
                 ]);
             };
+            
+            // Print chart functions moved to global scope
 
             // Don't render chart if no measurements available
             if (chartData.length === 0) {
                 return (
-                    <div>
+                    <div id="pdf-root">
                         <div className="input-section">
                             <h3>Input Test Data</h3>
                             
@@ -403,34 +603,297 @@
             );
         }
 
-        ReactDOM.render(<TestChart />, document.getElementById('root'));
+        // Wait for all libraries to load before rendering
+        const waitForLibraries = () => {
+            if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
+                const root = createRoot(document.getElementById('root'));
+                root.render(<TestChart />);
+            } else {
+                console.log('Waiting for libraries to load...');
+                setTimeout(waitForLibraries, 100);
+            }
+        };
+        
+        // Fallback if libraries don't load after 5 seconds
+        setTimeout(() => {
+            if (typeof React === 'undefined') {
+                console.error('React failed to load from CDN. Check your internet connection.');
+                document.getElementById('root').innerHTML = `
+                    <div style="padding: 20px; border: 2px solid red; background: #fee;">
+                        <h3>Library Loading Error</h3>
+                        <p>Failed to load React libraries from CDN. Please check your internet connection and refresh the page.</p>
+                        <p>Required libraries: React, ReactDOM, Recharts, html2canvas, jsPDF</p>
+                    </div>
+                `;
+            }
+        }, 5000);
+        
+        waitForLibraries();
+        
+        // Initialize print report on load
+        setTimeout(() => {
+            if (window.updatePrintReport) {
+                window.updatePrintReport([
+                    { position: 0, reading: 10.7 },
+                    { position: 100, reading: 8.9 }
+                ], [
+                    { position: 0, reading: 49.5 },
+                    { position: 100, reading: 47.8 }
+                ]);
+            }
+        }, 1000);
+        
+        // Global function to update print report
+        window.updatePrintReport = (measurements, squaringMeasurements) => {
+            // Update date
+            const dateElement = document.getElementById('print-date');
+            if (dateElement) {
+                const today = new Date();
+                const formattedDate = today.toLocaleDateString("en-US", { 
+                    day: "2-digit", 
+                    month: "short", 
+                    year: "numeric" 
+                }).replace(/,/g, '');
+                dateElement.textContent = `Date: ${formattedDate}`;
+            }
+            
+            // Update measurement distance
+            const distanceElement = document.getElementById('print-distance');
+            if (distanceElement) {
+                distanceElement.textContent = `Measurement Distance: 100 mm`;
+            }
+            
+            // Update result (simplified calculation)
+            const resultElement = document.getElementById('print-result');
+            if (resultElement && measurements && measurements.length > 0) {
+                const deltaY = Math.abs(measurements[measurements.length - 1].reading - measurements[0].reading);
+                resultElement.textContent = `Orthogonality = ${deltaY.toFixed(3)} μm`;
+            }
+            
+            // Update chart in print area
+            const printChartContainer = document.getElementById('print-chart-container');
+            if (printChartContainer && measurements && measurements.length > 0) {
+                printChartContainer.innerHTML = window.createPrintChart(measurements, squaringMeasurements);
+            }
+        };
+        
+        // Global function to create print chart
+        window.createPrintChart = (measurements, squaringMeasurements) => {
+            if (!measurements || measurements.length === 0) return '<p style="color: #666; text-align: center; margin: 200px 0;">No chart data available</p>';
+            
+            const createChartLines = () => {
+                const margin = { left: 60, right: 60, top: 60, bottom: 60 };
+                const width = 430;  // Adjusted for 550px container with some padding
+                const height = 430;
+                
+                // Calculate scales for the 4-coordinate system
+                const maxPosition = Math.max(...squaringMeasurements.map(m => m.position));
+                const maxRefReading = Math.max(...squaringMeasurements.map(m => m.reading));
+                const maxMeasReading = Math.max(...measurements.map(m => m.reading));
+                
+                // Normalize scales so both lines have similar visual length
+                const maxRange = Math.max(maxPosition, maxRefReading, maxMeasReading);
+                
+                const xScale = (x) => margin.left + (x / maxRange) * width;
+                const yScale = (y) => margin.top + height - (y / maxRange) * height;
+                
+                // Calculate best fit lines
+                const calculateBestFit = (points) => {
+                    const n = points.length;
+                    const sumX = points.reduce((sum, p) => sum + p.x, 0);
+                    const sumY = points.reduce((sum, p) => sum + p.y, 0);
+                    const sumXY = points.reduce((sum, p) => sum + p.x * p.y, 0);
+                    const sumXX = points.reduce((sum, p) => sum + p.x * p.x, 0);
+                    
+                    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+                    const intercept = (sumY - slope * sumX) / n;
+                    
+                    return { slope, intercept };
+                };
+                
+                // Reference data points for best fit
+                const refDataPoints = squaringMeasurements.map((point, i) => ({
+                    x: point.reading - (squaringMeasurements[0]?.reading || 0),
+                    y: point.position
+                }));
+                
+                // Measurement data points for best fit
+                const measDataPoints = measurements.map((point, i) => ({
+                    x: squaringMeasurements[i]?.position || 0,
+                    y: point.reading - (measurements[0]?.reading || 0)
+                }));
+                
+                // Calculate best fit lines
+                const refBestFit = calculateBestFit(refDataPoints);
+                const measBestFit = calculateBestFit(measDataPoints);
+                
+                // Generate best fit line points
+                const refMinX = Math.min(...refDataPoints.map(p => p.x));
+                const refMaxX = Math.max(...refDataPoints.map(p => p.x));
+                const measMinX = Math.min(...measDataPoints.map(p => p.x));
+                const measMaxX = Math.max(...measDataPoints.map(p => p.x));
+                
+                const refLineStart = { x: refMinX, y: refBestFit.slope * refMinX + refBestFit.intercept };
+                const refLineEnd = { x: refMaxX, y: refBestFit.slope * refMaxX + refBestFit.intercept };
+                const measLineStart = { x: measMinX, y: measBestFit.slope * measMinX + measBestFit.intercept };
+                const measLineEnd = { x: measMaxX, y: measBestFit.slope * measMaxX + measBestFit.intercept };
+                
+                let lines = '';
+                
+                // Reference best fit line (Blue)
+                lines += `<line x1="${xScale(refLineStart.x)}" y1="${yScale(refLineStart.y)}" x2="${xScale(refLineEnd.x)}" y2="${yScale(refLineEnd.y)}" stroke="blue" stroke-width="2" />`;
+                
+                // Measurement best fit line (Red)
+                lines += `<line x1="${xScale(measLineStart.x)}" y1="${yScale(measLineStart.y)}" x2="${xScale(measLineEnd.x)}" y2="${yScale(measLineEnd.y)}" stroke="red" stroke-width="2" />`;
+                
+                // Data point markers
+                refDataPoints.forEach((point, i) => {
+                    const x = xScale(point.x);
+                    const y = yScale(point.y);
+                    lines += `<line x1="${x-4}" y1="${y-4}" x2="${x+4}" y2="${y+4}" stroke="gray" stroke-width="2" />`;
+                    lines += `<line x1="${x-4}" y1="${y+4}" x2="${x+4}" y2="${y-4}" stroke="gray" stroke-width="2" />`;
+                });
+                
+                measDataPoints.forEach((point, i) => {
+                    const x = xScale(point.x);
+                    const y = yScale(point.y);
+                    lines += `<line x1="${x-4}" y1="${y-4}" x2="${x+4}" y2="${y+4}" stroke="gray" stroke-width="2" />`;
+                    lines += `<line x1="${x-4}" y1="${y+4}" x2="${x+4}" y2="${y-4}" stroke="gray" stroke-width="2" />`;
+                });
+                
+                return lines;
+            };
+            
+            return `
+                <svg width="550" height="550" style="background: white;">
+                    <!-- Grid -->
+                    <defs>
+                        <pattern id="print-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#ccc" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#print-grid)" />
+                    
+                    <!-- Axes -->
+                    <line x1="60" y1="490" x2="490" y2="490" stroke="black" stroke-width="2" />
+                    <line x1="60" y1="60" x2="60" y2="490" stroke="black" stroke-width="2" />
+                    
+                    <!-- Axis labels -->
+                    <text x="275" y="520" text-anchor="middle" font-size="12">Direction 1</text>
+                    <text x="30" y="275" text-anchor="middle" font-size="12" transform="rotate(-90, 30, 275)">Direction 2</text>
+                    
+                    ${createChartLines()}
+                </svg>
+            `;
+        };
 
-        // PDF/Print handlers
-        window.addEventListener('DOMContentLoaded', () => {
+        // Print/PDF handlers - replicating ortho-dashboard logic
+        setTimeout(() => {
             const { jsPDF } = window.jspdf;
             const pdfBtn = document.getElementById('btn-pdf');
             const printBtn = document.getElementById('btn-print');
-            const target = document.getElementById('pdf-root');
 
-            if (pdfBtn && target) {
+            // Function to convert image to base64 data URL to avoid tainted canvas
+            const convertImageToBase64 = (imgElement) => {
+                return new Promise((resolve, reject) => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    
+                    img.onload = () => {
+                        canvas.width = img.naturalWidth;
+                        canvas.height = img.naturalHeight;
+                        ctx.drawImage(img, 0, 0);
+                        try {
+                            const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+                            resolve(dataURL);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    
+                    img.onerror = () => reject(new Error('Failed to load image'));
+                    img.src = imgElement.src;
+                });
+            };
+
+            // Original ortho-dashboard print logic: just calls window.print()
+            if (printBtn) {
+                printBtn.addEventListener('click', () => {
+                    console.log('Print button clicked - calling window.print()');
+                    window.print();
+                });
+            }
+
+            // Enhanced PDF generation - targeting the print report like ortho-dashboard
+            if (pdfBtn) {
                 pdfBtn.addEventListener('click', async () => {
-                    const canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: 2 });
+                    try {
+                        // Target the print report area (same as what gets printed)
+                        const target = document.querySelector('#print-report .printable-area');
+                        
+                        if (!target) {
+                            alert('No print report content available for PDF generation');
+                            return;
+                        }
+
+                        // Convert logo image to base64 first to avoid tainted canvas
+                        const logoImg = document.querySelector('#print-report img[src="./AERO_RGB.jpg"]');
+                        if (logoImg) {
+                            console.log('Converting logo to base64...');
+                            const base64Logo = await convertImageToBase64(logoImg);
+                            logoImg.src = base64Logo;
+                            console.log('Logo converted to base64 successfully');
+                        }
+
+                        // Temporarily show the print report for PDF generation
+                        const printReport = document.getElementById('print-report');
+                        const originalDisplay = printReport.style.display;
+                        printReport.style.display = 'block';
+                        printReport.style.visibility = 'visible';
+
+                        console.log('Generating PDF for print report element:', target);
+                        const canvas = await html2canvas(target, { 
+                            backgroundColor: '#ffffff', 
+                            scale: 2,
+                            useCORS: true,
+                            logging: true,
+                            width: target.scrollWidth,
+                            height: target.scrollHeight
+                        });
+                        
+                        // Hide the print report again
+                        printReport.style.display = originalDisplay;
+                        printReport.style.visibility = '';
+                        
                     const imgData = canvas.toDataURL('image/png');
                     const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
                     const pageWidth = pdf.internal.pageSize.getWidth();
+                        const pageHeight = pdf.internal.pageSize.getHeight();
                     const margin = 36; // 0.5in
                     const drawWidth = pageWidth - margin * 2;
                     const aspect = canvas.height / canvas.width;
                     const drawHeight = drawWidth * aspect;
-                    pdf.addImage(imgData, 'PNG', margin, margin, drawWidth, drawHeight);
-                    pdf.save('orthogonality-chart.pdf');
+                        
+                        // Center the content vertically if it fits
+                        const yPos = drawHeight <= (pageHeight - margin * 2) 
+                            ? margin + (pageHeight - margin * 2 - drawHeight) / 2 
+                            : margin;
+                        
+                        pdf.addImage(imgData, 'PNG', margin, yPos, drawWidth, drawHeight);
+                        pdf.save('axis-alignment-report.pdf');
+                        console.log('PDF report saved successfully');
+                    } catch (error) {
+                        console.error('Error generating PDF:', error);
+                        alert('Error generating PDF: ' + error.message);
+                    }
                 });
             }
-
-            if (printBtn) {
-                printBtn.addEventListener('click', () => window.print());
-            }
-        });
+            
+            console.log('Event listeners attached successfully');
+        }, 100);
     </script>
 </body>
 </html>

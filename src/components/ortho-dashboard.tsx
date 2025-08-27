@@ -317,7 +317,111 @@ export function OrthoDashboard() {
     }
   };
 
-  const handlePrint = () => window.print();
+  // Function to convert image to base64 data URL to avoid tainted canvas
+  const convertImageToBase64 = useCallback((imgElement: HTMLImageElement): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        ctx.drawImage(img, 0, 0);
+        try {
+          const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+          resolve(dataURL);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = imgElement.src;
+    });
+  }, []);
+
+  const handlePrint = useCallback(async () => {
+    // Check if PDF libraries are available for enhanced PDF generation
+    if (typeof window !== 'undefined' && (window as any).html2canvas && (window as any).jsPDF) {
+      try {
+        // Enhanced PDF generation
+        const target = document.querySelector('#print-report .printable-area') as HTMLElement;
+        
+        if (!target) {
+          console.warn('No print report content available for PDF generation, falling back to print');
+          window.print();
+          return;
+        }
+
+        // Convert logo image to base64 first to avoid tainted canvas
+        const logoImg = document.querySelector('#print-report img[src="/AERO_RGB.jpg"]') as HTMLImageElement;
+        if (logoImg) {
+          console.log('Converting logo to base64...');
+          const base64Logo = await convertImageToBase64(logoImg);
+          logoImg.src = base64Logo;
+          console.log('Logo converted to base64 successfully');
+        }
+
+        // Temporarily show the print report for PDF generation
+        const printReport = document.getElementById('print-report');
+        if (!printReport) {
+          window.print();
+          return;
+        }
+
+        const originalDisplay = printReport.style.display;
+        printReport.style.display = 'block';
+        printReport.style.visibility = 'visible';
+
+        console.log('Generating PDF for print report element:', target);
+        const canvas = await (window as any).html2canvas(target, { 
+          backgroundColor: '#ffffff', 
+          scale: 2,
+          useCORS: true,
+          logging: true,
+          width: target.scrollWidth,
+          height: target.scrollHeight
+        });
+        
+        // Hide the print report again
+        printReport.style.display = originalDisplay;
+        printReport.style.visibility = '';
+        
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new (window as any).jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 36; // 0.5in
+        const drawWidth = pageWidth - margin * 2;
+        const aspect = canvas.height / canvas.width;
+        const drawHeight = drawWidth * aspect;
+        
+        // Center the content vertically if it fits
+        const yPos = drawHeight <= (pageHeight - margin * 2) 
+          ? margin + (pageHeight - margin * 2 - drawHeight) / 2 
+          : margin;
+        
+        pdf.addImage(imgData, 'PNG', margin, yPos, drawWidth, drawHeight);
+        pdf.save('axis-alignment-report.pdf');
+        console.log('PDF report saved successfully');
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        // Fallback to regular print
+        window.print();
+      }
+    } else {
+      // Standard print functionality (current behavior)
+      window.print();
+    }
+  }, [convertImageToBase64]);
 
   // Update target progress in Phase 3
   useEffect(() => {
@@ -1828,56 +1932,125 @@ function PrintableReport({
   const inSpec = finalResult?.unit === 'arcsec' && Math.abs(resultValue) <= spec;
 
   return (
-    <div className="p-8 font-sans bg-white text-black printable-area flex flex-col min-h-[95vh]">
-      <header className="flex flex-col items-center justify-center pb-4 mb-4 border-b border-gray-300">
-        <img src="/AerotechLogo.svg" alt="Aerotech Logo" className="h-12 w-auto mb-2" />
-        <h1 className="text-2xl font-bold text-gray-700 text-center">Axis Alignment</h1>
+    <div 
+      className="printable-area"
+      style={{
+        fontFamily: 'Arial, sans-serif',
+        background: 'white',
+        color: 'black',
+        width: '8.5in',
+        height: '11in',
+        margin: '0 auto',
+        padding: '0.3in',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+      }}
+    >
+      {/* Header with logo and title */}
+      <header style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        marginBottom: '0.2in',
+      }}>
+        <img 
+          src="/AERO_RGB.jpg" 
+          alt="Aerotech Logo" 
+          style={{
+            height: '80px',
+            width: 'auto',
+            marginBottom: '0.05in',
+            maxWidth: '300px',
+            objectFit: 'contain',
+          }}
+        />
+        <h1 style={{
+          fontSize: '1.2rem',
+          fontWeight: 'bold',
+          color: '#555',
+          margin: '0',
+          textAlign: 'center',
+        }}>Axis Alignment</h1>
+        <hr style={{ width: '100%', border: '1px solid #ccc', margin: '0.05in 0' }} />
       </header>
       
-      <main className="flex-1 flex justify-center">
-        <ResultChart
+      {/* Chart container - centered with fixed dimensions */}
+      <main style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flex: '1',
+        marginBottom: '0.3in',
+      }}>
+        <div style={{ width: '550px', height: '550px' }}>
+          <ResultChart
             travelDistance={parseFloat(measurementDistance)}
             finalMeasurement={finalMeasurement}
             referenceMeasurement={referenceMeasurement}
             measurements={measurements}
             squaringMeasurements={squaringMeasurements}
-        />
+          />
+        </div>
       </main>
       
-      <section className="mt-4 grid grid-cols-3 gap-4 text-xs">
-        <div className="p-2 border border-gray-300">
-          <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Results</h3>
-          <div className="space-y-1">
+      {/* Three-column footer aligned with chart width */}
+      <section style={{
+        width: '700px',
+        margin: '0 auto',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '0.4rem',
+        fontSize: '0.7rem',
+        marginBottom: '0.3in',
+      }}>
+        <div style={{ padding: '0.5rem', border: '1px solid #ccc' }}>
+          <h3 style={{
+            fontWeight: 'bold',
+            borderBottom: '1px solid #ccc',
+            paddingBottom: '0.25rem',
+            margin: '0 0 0.25rem 0',
+            fontSize: '0.8rem',
+          }}>Results</h3>
+          <div style={{ lineHeight: '1.3' }}>
             <div>Orthogonality = {finalResult ? `${Math.abs(resultValue).toFixed(1)} μm` : '2.1 μm'}</div>
           </div>
         </div>
         
-        <div className="p-2 border border-gray-300">
-          <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Comments</h3>
-          <div className="space-y-1 text-xs">
-            <div>Axis 1 Serial Number: {reportData.axis1Serial}</div>
-            <div>Axis 2 Serial Number: {reportData.axis2Serial}</div>
+        <div style={{ padding: '0.5rem', border: '1px solid #ccc' }}>
+          <h3 style={{
+            fontWeight: 'bold',
+            borderBottom: '1px solid #ccc',
+            paddingBottom: '0.25rem',
+            margin: '0 0 0.25rem 0',
+            fontSize: '0.8rem',
+          }}>Comments</h3>
+          <div style={{ lineHeight: '1.2', fontSize: '0.65rem' }}>
+            <div>Axis 1 Serial: {reportData.axis1Serial}</div>
+            <div>Axis 2 Serial: {reportData.axis2Serial}</div>
             <div>Order Number: {reportData.orderNumber}</div>
-            <div>Customer Name: {reportData.customerName}</div>
-            <div>Alignment Part Number: {reportData.alignmentPartNumber}</div>
+            <div>Customer: {reportData.customerName}</div>
+            <div>Alignment Part: {reportData.alignmentPartNumber}</div>
           </div>
         </div>
         
-        <div className="p-2 border border-gray-300">
-          <h3 className="font-bold border-b border-gray-300 pb-1 mb-1">Test Conditions</h3>
-          <div className="space-y-1 text-xs">
+        <div style={{ padding: '0.5rem', border: '1px solid #ccc' }}>
+          <h3 style={{
+            fontWeight: 'bold',
+            borderBottom: '1px solid #ccc',
+            paddingBottom: '0.25rem',
+            margin: '0 0 0.25rem 0',
+            fontSize: '0.8rem',
+          }}>Test Conditions</h3>
+          <div style={{ lineHeight: '1.2', fontSize: '0.65rem' }}>
             <div>Technician: {reportData.technician}</div>
             <div>Date: {new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/,/g, '')}</div>
-            <div>Order Number: {reportData.orderNumber}</div>
-            <div>Indicator Asset Number: {reportData.indicatorAssetNumber}</div>
-            <div>Measurement Distance: {measurementDistance} mm</div>
+            <div>Distance: {measurementDistance} mm</div>
+            <div>Indicator Asset: {reportData.indicatorAssetNumber}</div>
           </div>
         </div>
       </section>
-
-      <footer className="mt-8 text-center text-xs">
-        <p className="font-bold text-red-600">Aerotech Inc., Proprietary and Confidential</p>
-      </footer>
     </div>
   );
 }
