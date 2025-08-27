@@ -1976,19 +1976,17 @@ function PrintableReport({
         justifyContent: 'center',
         alignItems: 'center',
         flexGrow: 1,
-        marginTop: '0.1in',
-        marginBottom: '0.2in',
-        minHeight: '5.5in', // Ensures chart gets proper space
+        marginTop: '0.2in',
+        marginBottom: '0.3in',
+        minHeight: '5in', // Ensures chart gets proper space between header and footer
       }}>
-        <div style={{ width: '550px', height: '550px' }}>
-          <ResultChart
-            travelDistance={parseFloat(measurementDistance)}
-            finalMeasurement={finalMeasurement}
-            referenceMeasurement={referenceMeasurement}
-            measurements={measurements}
-            squaringMeasurements={squaringMeasurements}
-          />
-        </div>
+        <ResultChart
+          travelDistance={parseFloat(measurementDistance)}
+          finalMeasurement={finalMeasurement}
+          referenceMeasurement={referenceMeasurement}
+          measurements={measurements}
+          squaringMeasurements={squaringMeasurements}
+        />
       </main>
       
       {/* Three-column footer aligned with chart width */}
