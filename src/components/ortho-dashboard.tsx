@@ -37,13 +37,14 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
-import { 
+import {
   calculateInitialAngle,
   calculateLeverArm,
   calculateTargetReading,
   checkTargetProgress,
   calculateCompensatedOrthogonality,
   calculateAdjustmentTolerance,
+  calculateBestFitLine,
   type MeasurementPoint
 } from "@/lib/calculations";
 import { useToast } from "@/hooks/use-toast";
@@ -267,6 +268,17 @@ export function OrthoDashboard() {
             }
         }
         setStep("results");
+    }
+  };
+
+  const handleSkipStep = (stepToSkip: Step) => {
+    if (stepToSkip === "squaring") {
+      // Skip artifact adjustment (step 2) and go directly to reference measurement
+      setStep("referenceMeasurement");
+    } else if (stepToSkip === "adjustment") {
+      // Skip upper axis adjustment (step 4) and go directly to final measurement
+      setMeasurements([]);
+      setStep("finalMeasurement");
     }
   };
   
@@ -948,9 +960,14 @@ export function OrthoDashboard() {
                 </CardContent>
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-                    <Button onClick={handleNextStep} disabled={!isCompleted} className="bg-primary hover:bg-primary/90">
-                        {isCompleted ? "Proceed to Final Measurements" : "Complete Alignment to Proceed"} <ChevronRight />
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => handleSkipStep("squaring")}>
+                            Skip Adjustment
+                        </Button>
+                        <Button onClick={handleNextStep} disabled={!isCompleted} className="bg-primary hover:bg-primary/90">
+                            {isCompleted ? "Proceed to Final Measurements" : "Complete Alignment to Proceed"} <ChevronRight />
+                        </Button>
+                    </div>
                 </CardFooter>
             </Card>
         );
@@ -980,6 +997,37 @@ export function OrthoDashboard() {
                   ))}
                 </div>
               </div>
+              {/* Live Reference Line Angle Display */}
+              {squaringMeasurements.length >= 2 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle as="h3" className="text-base">Live Reference Line Analysis</CardTitle>
+                    <CardDescription className="text-xs">Real-time calculation of reference face alignment</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const referenceFit = calculateBestFitLine(squaringMeasurements);
+                      if (referenceFit) {
+                        return (
+                          <div className="grid grid-cols-2 gap-4 text-center">
+                            <div className="p-3 border rounded bg-blue-50">
+                              <p className="text-sm text-muted-foreground">Reference Slope</p>
+                              <p className="text-lg font-semibold">{referenceFit.slopeArcsec.toFixed(2)}"</p>
+                              <p className="text-xs text-muted-foreground">Artifact error</p>
+                            </div>
+                            <div className="p-3 border rounded bg-gray-50">
+                              <p className="text-sm text-muted-foreground">Fit Quality</p>
+                              <p className="text-lg font-semibold">R² = {referenceFit.rSquared.toFixed(3)}</p>
+                              <p className="text-xs text-muted-foreground">Correlation</p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return <p className="text-sm text-muted-foreground text-center">Need more measurements for analysis</p>;
+                    })()}
+                  </CardContent>
+                </Card>
+              )}
             </CardContent>
             <CardFooter className="justify-between">
               <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
@@ -1307,9 +1355,14 @@ export function OrthoDashboard() {
             </CardContent>
             <CardFooter className="justify-between">
               <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
-                    <Button onClick={handleNextStep} disabled={!isCompleted} className="bg-primary hover:bg-primary/90">
-                        {isCompleted ? "Proceed to Final Measurements" : "Complete Alignment to Proceed"} <ChevronRight />
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => handleSkipStep("adjustment")}>
+                  Skip Adjustment
+                </Button>
+                <Button onClick={handleNextStep} disabled={!isCompleted} className="bg-primary hover:bg-primary/90">
+                  {isCompleted ? "Proceed to Final Measurements" : "Complete Alignment to Proceed"} <ChevronRight />
+                </Button>
+              </div>
             </CardFooter>
           </Card>
         );
@@ -1339,6 +1392,52 @@ export function OrthoDashboard() {
                             ))}
                         </div>
                     </div>
+                    {/* Live Orthogonality Calculation */}
+                    {measurements.length >= 2 && squaringMeasurements.length >= 2 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle as="h3" className="text-base">Live Orthogonality Calculation</CardTitle>
+                                <CardDescription className="text-xs">Real-time compensated orthogonality as measurements are recorded</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {(() => {
+                                    const result = calculateCompensatedOrthogonality(squaringMeasurements, measurements);
+                                    if (result) {
+                                        const inSpec = Math.abs(result.compensatedOrthogonality) <= SPEC_ARCSECONDS;
+                                        return (
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-3 gap-4 text-center">
+                                                    <div className="p-3 border rounded bg-purple-50">
+                                                        <p className="text-sm text-muted-foreground">Final Slope</p>
+                                                        <p className="text-lg font-semibold">{result.finalFit.slopeArcsec.toFixed(2)}"</p>
+                                                        <p className="text-xs text-muted-foreground">Raw orthogonality</p>
+                                                    </div>
+                                                    <div className="p-3 border rounded bg-blue-50">
+                                                        <p className="text-sm text-muted-foreground">Artifact Error</p>
+                                                        <p className="text-lg font-semibold">{result.artifactError.toFixed(2)}"</p>
+                                                        <p className="text-xs text-muted-foreground">Reference correction</p>
+                                                    </div>
+                                                    <div className={`p-3 border-2 rounded ${inSpec ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
+                                                        <p className="text-sm text-muted-foreground">Compensated</p>
+                                                        <p className="text-xl font-bold">{Math.abs(result.compensatedOrthogonality).toFixed(2)}"</p>
+                                                        <p className={`text-xs font-semibold ${inSpec ? 'text-green-700' : 'text-red-700'}`}>
+                                                            {inSpec ? '✓ In Spec' : '✗ Out of Spec'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-center p-3 border rounded bg-gray-50">
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Calculation: {result.rawOrthogonality.toFixed(2)}" - ({result.artifactError.toFixed(2)}") = {result.compensatedOrthogonality.toFixed(2)}"
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return <p className="text-sm text-muted-foreground text-center">Need reference measurements for orthogonality calculation</p>;
+                                })()}
+                            </CardContent>
+                        </Card>
+                    )}
                 </CardContent>
                 <CardFooter className="justify-between">
                     <Button variant="outline" onClick={handlePrevStep}><ChevronLeft /> Back</Button>
