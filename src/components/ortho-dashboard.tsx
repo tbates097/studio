@@ -1935,7 +1935,7 @@ function PrintableReport({
         width: '8.5in',
         height: '11in',
         margin: '0 auto',
-        padding: '0.3in',
+        padding: '0.25in', // Slightly reduce padding to shift content left
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
@@ -1979,19 +1979,26 @@ function PrintableReport({
         marginTop: '0.2in',
         marginBottom: '0.3in',
         minHeight: '5in', // Ensures chart gets proper space between header and footer
+        width: '100%',
       }}>
-        <ResultChart
-          travelDistance={parseFloat(measurementDistance)}
-          finalMeasurement={finalMeasurement}
-          referenceMeasurement={referenceMeasurement}
-          measurements={measurements}
-          squaringMeasurements={squaringMeasurements}
-        />
+        <div style={{
+          width: '750px', // Slightly wider to better center on page
+          display: 'flex',
+          justifyContent: 'center',
+        }}>
+          <ResultChart
+            travelDistance={parseFloat(measurementDistance)}
+            finalMeasurement={finalMeasurement}
+            referenceMeasurement={referenceMeasurement}
+            measurements={measurements}
+            squaringMeasurements={squaringMeasurements}
+          />
+        </div>
       </main>
       
       {/* Three-column footer aligned with chart width */}
       <section style={{
-        width: '700px',
+        width: '750px', // Match chart container width
         margin: '0 auto',
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
