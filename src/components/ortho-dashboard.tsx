@@ -1980,13 +1980,7 @@ function PrintableReport({
         marginBottom: '0.2in',
         minHeight: '5.5in', // Ensures chart gets proper space
       }}>
-        <div style={{ 
-          width: '550px', 
-          height: '550px',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}>
+        <div style={{ width: '550px', height: '550px' }}>
           <ResultChart
             travelDistance={parseFloat(measurementDistance)}
             finalMeasurement={finalMeasurement}
