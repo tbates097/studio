@@ -1147,22 +1147,15 @@ export function OrthoDashboard() {
         return (
           <Card>
             <CardHeader>
-                    <CardTitle>
-                        {mountingChoice === "artifact" 
-                            ? "Step 4: Lower Axis Adjustment (Three-Phase Method)"
-                            : mountingChoice === "indicator" 
-                            ? "Step 4: Upper Axis Adjustment (Three-Phase Method)"
-                            : "Step 4: Axis Adjustment (Three-Phase Method)"
-                        }
-                    </CardTitle>
+                    <CardTitle>Step 4: Upper Axis Adjustment (Three-Phase Method)</CardTitle>
               <CardDescription>
                         <div className="space-y-2">
                             <div>Systematic metrology workflow: Measure initial error → Calibrate adjustment → Execute calculated correction</div>
                             <div className="font-medium text-foreground">
                                 {mountingChoice === "artifact" 
-                                    ? <>Here we will align the artifact to the <strong>lower axis</strong> travel. Please move the indicator to the pace parallel to <strong>lower axis</strong> travel and then follow the steps below</> 
+                                    ? <>In this step, you will align the Upper Axis to the <strong>lower axis</strong> travel. Please move the indicator to the face parallel to <strong>lower axis</strong> travel and then follow the steps below</> 
                                     : mountingChoice === "indicator" 
-                                    ? <>Here we will align the artifact to the <strong>upper axis</strong> travel. Please move the indicator to the pace parallel to <strong>upper axis</strong> travel and then follow the steps below</>
+                                    ? <>In this step, you will align the Upper Axis to the <strong>upper axis</strong> travel. Please move the indicator to the face parallel to <strong>upper axis</strong> travel and then follow the steps below</>
                                     : "Please complete the setup configuration first."
                                 }
                             </div>
