@@ -736,9 +736,9 @@ export function OrthoDashboard() {
                             <div>Systematic metrology workflow: Measure initial error → Calibrate adjustment → Execute calculated correction</div>
                             <div className="font-medium text-foreground">
                                 {mountingChoice === "artifact" 
-                                    ? <>Here we will align the artifact to the <strong>upper axis</strong> travel. Please move the indicator to the pace parallel to <strong>upper axis</strong> travel and then follow the steps below</> 
+                                    ? <>In this step, you will align the artifact to the <strong>upper axis</strong> travel. Please move the indicator to the face parallel to <strong>upper axis</strong> travel and then follow the steps below</> 
                                     : mountingChoice === "indicator" 
-                                    ? <>Here we will align the artifact to the <strong>lower axis</strong> travel. Please move the indicator to the pace parallel to <strong>lower axis</strong> travel and then follow the steps below</>
+                                    ? <>In this step, you will align the artifact to the <strong>lower axis</strong> travel. Please move the indicator to the face parallel to <strong>lower axis</strong> travel and then follow the steps below</>
                                     : "Please complete the setup configuration first."
                                 }
                             </div>
