@@ -55,7 +55,7 @@ import { useIndicator } from "@/hooks/use-indicator";
 import { Badge } from "./ui/badge";
 
 
-type Step = "setup" | "squaring" | "referenceMeasurement" | "adjustment" | "finalMeasurement" | "results";
+type Step = "setup" | "mountingChoice" | "squaring" | "referenceMeasurement" | "adjustment" | "finalMeasurement" | "results";
 
 type Measurement = {
   position: number;
@@ -84,6 +84,7 @@ const SPEC_ARCSECONDS = 5;
 export function OrthoDashboard() {
   const [step, setStep] = useState<Step>("setup");
   const [measurementDistance, setMeasurementDistance] = useState("100");
+  const [mountingChoice, setMountingChoice] = useState<"artifact" | "indicator" | null>(null);
   const { 
     reading: currentReading, 
     currentReadingRef,
@@ -189,6 +190,7 @@ export function OrthoDashboard() {
 
   const resetProcess = () => {
     setStep("setup");
+    setMountingChoice(null);
     setSquaringMeasurements([]);
     setMeasurements([]);
     setFinalResult(null);
@@ -244,6 +246,8 @@ export function OrthoDashboard() {
             });
             return;
         }
+        setStep("mountingChoice");
+    } else if (step === "mountingChoice") {
         setStep("squaring");
     } else if (step === "squaring") {
         setStep("referenceMeasurement");
@@ -299,9 +303,12 @@ export function OrthoDashboard() {
   };
   
   const handlePrevStep = () => {
+    if (step === "mountingChoice") {
+      setStep("setup");
+    }
     if (step === "squaring") {
       setSquaringZero(null);
-      setStep("setup");
+      setStep("mountingChoice");
     }
     if (step === "referenceMeasurement") {
       setSquaringMeasurements([]);
@@ -660,6 +667,63 @@ export function OrthoDashboard() {
           </Card>
         );
 
+      case "mountingChoice":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 1.5: Setup Configuration</CardTitle>
+              <CardDescription>
+                Please describe your current setup:
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4">
+                <div
+                  className={cn(
+                    "p-6 border-2 rounded-lg cursor-pointer transition-colors hover:bg-muted/50",
+                    mountingChoice === "artifact" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border hover:border-muted-foreground"
+                  )}
+                  onClick={() => setMountingChoice("artifact")}
+                >
+                  <div className="space-y-2">
+                    <h3 className="font-semibold">The artifact is mounted to the system</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Your measurement artifact is directly mounted to the system being aligned.
+                    </p>
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    "p-6 border-2 rounded-lg cursor-pointer transition-colors hover:bg-muted/50",
+                    mountingChoice === "indicator" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border hover:border-muted-foreground"
+                  )}
+                  onClick={() => setMountingChoice("indicator")}
+                >
+                  <div className="space-y-2">
+                    <h3 className="font-semibold">The indicator is mounted to the system</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Your indicator is directly mounted to the system being aligned.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="justify-between">
+              <Button onClick={handlePrevStep} variant="outline">
+                <ChevronLeft />
+                Back
+              </Button>
+              <Button onClick={handleNextStep} disabled={!mountingChoice}>
+                Next <ChevronRight />
+              </Button>
+            </CardFooter>
+          </Card>
+        );
+
       case "squaring": {
         const isCompleted = targetProgress?.isWithinTolerance || false;
         
@@ -668,7 +732,17 @@ export function OrthoDashboard() {
                 <CardHeader>
                     <CardTitle>Step 2: Artifact Adjustment (Three-Phase Method)</CardTitle>
                     <CardDescription>
-                        Systematic metrology workflow: Measure initial error → Calibrate adjustment → Execute calculated correction
+                        <div className="space-y-2">
+                            <div>Systematic metrology workflow: Measure initial error → Calibrate adjustment → Execute calculated correction</div>
+                            <div className="font-medium text-foreground">
+                                {mountingChoice === "artifact" 
+                                    ? <>Here we will align the artifact to the <strong>upper axis</strong> travel. Please move the indicator to the pace parallel to <strong>upper axis</strong> travel and then follow the steps below</> 
+                                    : mountingChoice === "indicator" 
+                                    ? <>Here we will align the artifact to the <strong>lower axis</strong> travel. Please move the indicator to the pace parallel to <strong>lower axis</strong> travel and then follow the steps below</>
+                                    : "Please complete the setup configuration first."
+                                }
+                            </div>
+                        </div>
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1073,9 +1147,26 @@ export function OrthoDashboard() {
         return (
           <Card>
             <CardHeader>
-                    <CardTitle>Step 4: Upper Axis Adjustment (Three-Phase Method)</CardTitle>
+                    <CardTitle>
+                        {mountingChoice === "artifact" 
+                            ? "Step 4: Lower Axis Adjustment (Three-Phase Method)"
+                            : mountingChoice === "indicator" 
+                            ? "Step 4: Upper Axis Adjustment (Three-Phase Method)"
+                            : "Step 4: Axis Adjustment (Three-Phase Method)"
+                        }
+                    </CardTitle>
               <CardDescription>
-                        Systematic metrology workflow: Measure initial error → Calibrate adjustment → Execute calculated correction
+                        <div className="space-y-2">
+                            <div>Systematic metrology workflow: Measure initial error → Calibrate adjustment → Execute calculated correction</div>
+                            <div className="font-medium text-foreground">
+                                {mountingChoice === "artifact" 
+                                    ? <>Here we will align the artifact to the <strong>lower axis</strong> travel. Please move the indicator to the pace parallel to <strong>lower axis</strong> travel and then follow the steps below</> 
+                                    : mountingChoice === "indicator" 
+                                    ? <>Here we will align the artifact to the <strong>upper axis</strong> travel. Please move the indicator to the pace parallel to <strong>upper axis</strong> travel and then follow the steps below</>
+                                    : "Please complete the setup configuration first."
+                                }
+                            </div>
+                        </div>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
